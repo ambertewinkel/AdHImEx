@@ -42,7 +42,7 @@ def ddx(fmh, fph, dxc):
     return (fph - fmh)/dxc
 
 
-def AdHImEx(init, nt, dt, uf, dxc, FCTiter=0, output_substages=False, substages=np.array([]), FCT_min=None, FCT_max=None, FCT_use_previous=False):
+def AdHImEx(init, nt, dt, uf, dxc, advective=False, FCTiter=0, output_substages=False, substages=np.array([]), FCT_min=None, FCT_max=None, FCT_use_previous=False):
     """Implements the AdHImEx scheme for a given initial field, number of time steps, time step length, velocity field at cell faces, cell widths, number of FCT iterations (0 for no FCT), whether to output substages (True/False) and number of FCT iterations."""
     nx = len(init)
 
@@ -61,14 +61,16 @@ def AdHImEx(init, nt, dt, uf, dxc, FCTiter=0, output_substages=False, substages=
     AIm = np.concatenate((AIm,bIm), axis=0)
     AEx = np.concatenate((AEx, np.zeros((nstages+1,1))), axis=1)
     AIm = np.concatenate((AIm, np.zeros((nstages+1,1))), axis=1)
-    flx_k, fEx, fIm, flx_contribution_from_stage_k = np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx))
+    flx_k, fEx_f, fIm_f, fEx_c, fIm_c, flx_contribution_from_stage_k = np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx))
 
-    thetaf, cf = np.zeros((nt,nx)), np.zeros((nt,nx))
+    thetaf, cf, thetac, cc = np.zeros((nt,nx)), np.zeros((nt,nx)), np.zeros((nt,nx)), np.zeros((nt,nx))
     for it in range(nt): # recalculate each unique theta for each time step (inefficient coding for uf=constant in space or time)
         cf[it] = uf[it]*dt/dxc # [i] at i-1/2
         #c_temp = np.maximum(cf[it], np.roll(cf[it],-1)) # [i] at i
         #cf_temp = np.maximum(c_temp, np.roll(c_temp,1)) # [i] at i-1/2
         thetaf[it] = implicitness(cf[it]) # [i] at i-1/2 # !!! is doing the max etc now correct?
+        cc[it] = 0.5*(np.abs(uf[it]) - uf[it] + np.abs(np.roll(uf[it],-1)) + np.roll(uf[it],-1))*dt/dxc # [i] at i, Courant defined at cell centers based on the *outward* pointing velocities
+        thetac[it] = implicitness(cc[it])
         
         #cc_out = 0.5*(np.abs(uf[it]) - uf[it] + np.abs(np.roll(uf[it],-1)) + np.roll(uf[it],-1))*dt/dxc # [i] at i, Courant defined at cell centers based on the *outward* pointing velocities
         #cc_in = 0.5*(np.abs(uf[it]) + uf[it] + np.abs(np.roll(uf[it],-1)) - np.roll(uf[it],-1))*dt/dxc # [i] at i, Courant defined at cell centers based on the *inward* pointing velocities
@@ -82,17 +84,25 @@ def AdHImEx(init, nt, dt, uf, dxc, FCTiter=0, output_substages=False, substages=
         for ik in range(nstages+1):
             # Calculate the field at stage k
             M = matrix_AdHImEx(nx, dt, dxc, thetaf[it]*uf[it], AIm[ik,ik]) # [i] at i
-            rhs_k = field[it] + dt*np.dot(AEx[ik,:ik], fEx[:ik,:]) + dt*np.dot(AIm[ik,:ik], fIm[:ik,:]) # [i] at i
+            if advective and (ik == 1 or ik == 2):
+                rhs_k = field[it] + dt*np.dot(AEx[ik,:ik], fEx_c[:ik,:]) + dt*np.dot(AIm[ik,:ik], fIm_c[:ik,:]) # [i] at i
+            else:
+                rhs_k = field[it] + dt*np.dot(AEx[ik,:ik], fEx_f[:ik,:]) + dt*np.dot(AIm[ik,:ik], fIm_f[:ik,:]) # [i] at i
             field_k = np.linalg.solve(M, rhs_k) # [i] at i
             if output_substages: 
                 substages[ik+1] = field_k
             # Calculate the flux based on the field at stage k
             flx_k[ik,:] = uf[it]*space_AdHImEx(field_k) # [i] at i-1/2
-            fEx[ik,:] = -ddx((1 - thetaf[it])*flx_k[ik,:], np.roll((1 - thetaf[it])*flx_k[ik,:],-1), dxc)
-            fIm[ik,:] = -ddx(thetaf[it]*flx_k[ik,:], np.roll(thetaf[it]*flx_k[ik,:],-1), dxc)   
-            flx_contribution_from_stage_k[ik,:] = AEx[-1,ik]*(1 - thetaf[it])*flx_k[ik,:] + AIm[-1,ik]*thetaf[it]*flx_k[ik,:]
-            flx_HO += flx_contribution_from_stage_k[ik,:]  
-        if FCTiter > 0:
+            fEx_f[ik,:] = -ddx((1 - thetaf[it])*flx_k[ik,:], np.roll((1 - thetaf[it])*flx_k[ik,:],-1), dxc)
+            fIm_f[ik,:] = -ddx(thetaf[it]*flx_k[ik,:], np.roll(thetaf[it]*flx_k[ik,:],-1), dxc)   
+            fEx_c[ik,:] = -(1 - thetac[it])*ddx(flx_k[ik,:], np.roll(flx_k[ik,:],-1), dxc)
+            fIm_c[ik,:] = -thetac[it]*ddx(flx_k[ik,:], np.roll(flx_k[ik,:],-1), dxc)   
+            if advective:
+                print('We cannot store the fluxes in the same way to get the final flux when writing in advective form.') #!!! To do: Figure out how to find the final flux for FCT in the end.
+            else:
+                flx_contribution_from_stage_k[ik,:] = AEx[-1,ik]*(1 - thetaf[it])*flx_k[ik,:] + AIm[-1,ik]*thetaf[it]*flx_k[ik,:]
+                flx_HO += flx_contribution_from_stage_k[ik,:]  
+        if FCTiter > 0 and advective == False: # !!! To do: Calculate flx_HO differently when using advective AdHImEx
             #previous = np.full(nx, False) #[True if cf[i] <= 1. else False for i in range(nx)] # [i] at i-1/2 # determines whether FCT also uses field[it] for bounds (True/False) # could use further consideration
             field[it+1] = lim.iterFCT(flx_HO, dxc, dt, uf[it], cf[it], thetaf[it], field[it], use_previous=FCT_use_previous, niter=FCTiter, ymin=FCT_min, ymax=FCT_max) # also option for ymin and ymax         
         else:     
