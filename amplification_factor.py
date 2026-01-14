@@ -55,10 +55,10 @@ def calculate_amplification_AdHImEx(C, theta, kdx):
     # Get the amplification factor equation with SymPy
     A_eqn = sy.lambdify([C_sy, SD, theta_sy], amplificationfactor_symbolic(butcher_AdHImEx_symbolic))
 
-    # Calculate values of amplification factor for given C, theta and kdx
-    Aabs = np.zeros((len(theta), len(C)), dtype=complex)
+    # Calculate max values of amplification factor for given C, theta (max over kdx)
+    maxAabs = np.zeros((len(theta), len(C)), dtype=float)
     for j in range(len(theta)):
         for i in range(len(C)):
-            Aabs[j, i] = np.abs(A_eqn(C[i], space_AdHImEx_symbolic(kdx), theta[j])).max()
-    return Aabs
+            maxAabs[j, i] = np.abs(A_eqn(C[i], space_AdHImEx_symbolic(kdx), theta[j])).max()
+    return maxAabs
 

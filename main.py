@@ -27,11 +27,12 @@ def fig_amplification_factor():
     A = af.calculate_amplification_AdHImEx(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
     theta_AdHImEx = sch.implicitness(C)
 
-    # Design colorbar
-    bounds = np.array([0.,1.000001,5.,10.,50.,100.,500.,1000.])
+    ## Design colorbar
+    bounds = np.array([0.,0.5, 1.00000001])
+    bounds = np.append(bounds, np.logspace(0,5,21)[1:])
     cmap = mpl.colormaps['viridis'].resampled(len(bounds))
     cmaplist = [cmap(i) for i in range(cmap.N)]
-    cmaplist[0] = (.8, .8, .8, 1.0)
+    cmaplist[0], cmaplist[1] = (.8, .8, .8, 1.0), (.8, .8, .8, 1.0)
     cmap = mpl.colors.LinearSegmentedColormap.from_list(
         'Custom cmap', cmaplist, cmap.N)
     norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
@@ -39,9 +40,11 @@ def fig_amplification_factor():
     # Produce and save figure
     fig = plt.figure(figsize=(4,3))
     C2D, theta2D = np.meshgrid(C, theta)
-    plt.contourf(C2D, theta2D, A, bounds, cmap=cmap, norm=norm)
+    plt.contourf(C2D, theta2D, A, bounds, cmap=cmap, norm=norm, extend='max')
     plt.plot(C, theta_AdHImEx, 'r--', linewidth=0.7, label=f'AdHImEx $\\theta$')
-    plt.colorbar(label='|A|', boundaries = bounds)
+    cbar = plt.colorbar(label='$\\max$$_{k \\Delta x}$$|A|$', boundaries = bounds, extend='max')
+    cbar.set_ticks([0, 1, 1e1, 1e2, 1e3, 1e4, 1e5])
+    cbar.set_ticklabels(['0', '1', '$10^1$', '$10^2$', '$10^3$', '$10^4$', '$10^5$'])
     plt.legend()
     plt.xscale('log')
     plt.xlabel('C')
@@ -50,7 +53,7 @@ def fig_amplification_factor():
     fig.savefig('figures/amplification_factor.pdf', dpi=300)
     plt.close(fig)
 
-
+ 
 def fig_uniform_advection():
     dt, nx, xmax = 0.01, 40, 1.
     dx = xmax/nx
@@ -163,84 +166,6 @@ def fig_l2_norm_over_C():
     ax.legend()
     plt.tight_layout()
     fig.savefig('figures/l2_norm_over_C.pdf', dpi=300)
-    plt.close(fig)
-
-
-def fig_AdImEx_FCT():
-    dt, nx, xmax = 0.01, 40, 1.
-    dx = xmax/nx
-    u = [3.125, 6.25]#[1., 3.125, 6.25, 10.]
-    C = [dt*u_i/dx for u_i in u]
-    nt = (100/np.array(u)).astype(int)
-    theta = [sch.implicitness(C_i) for C_i in C]
-    xf = np.linspace(0., xmax, nx, endpoint=False)
-    xc = xf + 0.5*dx
-    
-    fig, ax = plt.subplots(1, 2, figsize=(20,6.5))#12))
-    axcol = 0
-    #axcol = 0
-    for C_i, theta_i, u_i, nt_i in zip(C, theta, u, nt):
-        init = an.combi(xc, xmax, u=0., t=0.)
-        psi_AdHImEx = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx))
-        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx), FCTiter=1)
-        psi_AdHImEx_FCT2 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx), FCTiter=2)
-        psi_AdHImEx_FCT3 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx), FCTiter=3)
-        ax[axcol].plot(xc, init, color='gray', linestyle='--', label='Initial')
-        ax[axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdHImEx')
-        ax[axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdHImEx FCT')
-        ax[axcol].plot(xc, psi_AdHImEx_FCT2[-1], color='cornflowerblue', linestyle='-', label='AdHImEx 2FCT')
-        ax[axcol].plot(xc, psi_AdHImEx_FCT3[-1], color='skyblue', linestyle='-', label='AdHImEx 3FCT')
-        ax[axcol].text(0.04, 0.9, string.ascii_lowercase[C.index(C_i)], transform=ax[axcol].transAxes, size=20, weight='bold')
-        ax[axcol].set_title(f'$C={C_i:.2f}$, $\\theta={theta_i:.2f}$', size=20)
-        ax[axcol].tick_params(labelsize=20)
-        ax[axcol].set_xlim(0.,1.)
-        ax[axcol].set_xlabel('x', size=20)
-        ax[axcol].set_ylabel('$\\Psi$', size=20)
-        #ax[axcol].legend() # !!! figure out how to make one legend for all subplots
-        if axcol == 0:
-            handles, labels = ax[axcol].get_legend_handles_labels()
-        axcol += 1
-        #if axcol == 2:
-        #    axcol = 0
-        #    axrow += 1
-#
-    #dt, nx, xmax = 0.01, 40, 1.
-    #dx = xmax/nx
-    #u = [1., 3.125, 6.25, 10.]
-    #C = [dt*u_i/dx for u_i in u]
-    #nt = (100/np.array(u)).astype(int)
-    #theta = [sch.implicitness(C_i) for C_i in C]
-    #xf = np.linspace(0., xmax, nx, endpoint=False)
-    #xc = xf + 0.5*dx
-#
-    #fig, ax = plt.subplots(2, 2, figsize=(20,12))
-    #axrow = 0
-    #axcol = 0
-    #for C_i, theta_i, u_i, nt_i in zip(C, theta, u, nt):
-    #    init = an.combi(xc, xmax, u=0., t=0.)
-    #    psi_AdHImEx = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx))
-    #    psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx), FCTiter=1)
-    #    psi_AdHImEx_FCT2 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx), FCTiter=2)
-    #    psi_AdHImEx_FCT3 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i, nx), u_i), np.full(nx, dx), FCTiter=3)
-    #    ax[axrow, axcol].plot(xc, init, color='gray', linestyle='--', label='Initial')
-    #    ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdHImEx')
-    #    ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdHImEx FCT')
-    #    ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT2[-1], color='cornflowerblue', linestyle='-', label='AdHImEx 2FCT')
-    #    ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT3[-1], color='skyblue', linestyle='-', label='AdHImEx 3FCT')
-    #    ax[axrow, axcol].text(0.04, 0.9, string.ascii_lowercase[C.index(C_i)], transform=ax[axrow, axcol].transAxes, size=20, weight='bold')
-    #    ax[axrow, axcol].set_title(f'$C={C_i:.2f}$, $\\theta={theta_i:.2f}$')
-    #    ax[axrow, axcol].set_xlim(0.,1.)
-    #    ax[axrow, axcol].set_xlabel('x')
-    #    ax[axrow, axcol].set_ylabel('$\\Psi$')
-    #    if axcol == 0 and axrow == 0:
-    #        handles, labels = ax[axrow, axcol].get_legend_handles_labels()
-    #    axcol += 1
-    #    if axcol == 2:
-    #        axcol = 0
-    #        axrow += 1
-    fig.legend(handles, labels, ncol=5, bbox_to_anchor=(0.5, -0.1), loc='lower center', fontsize=20)
-    plt.tight_layout()
-    fig.savefig('figures/AdImEx_FCT.pdf', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
 
@@ -618,9 +543,6 @@ def main():
 
     ######## FIGURE: l2 norm over C ########
     #fig_l2_norm_over_C()
-
-    ######## FIGURE: AdImEx FCT ########
-    fig_AdImEx_FCT()
 
     ######## FIGURE: Nonuniform advection ########
     #fig_nonuniform_advection()
