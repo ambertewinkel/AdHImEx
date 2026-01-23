@@ -19,8 +19,8 @@ def set_extrema(nx, uf, field_bounded, field_previous, use_previous=False, only_
                 #    fieldmin[i] = min([field_bounded[i-1], field_bounded[i], field_bounded[(i+1)%nx],  field_previous[i]])
         else:
             for i in range(nx):
-                fieldmax[i] = max([field_bounded[i-1], field_bounded[i], field_bounded[(i+1)%nx]])
-                fieldmin[i] = min([field_bounded[i-1], field_bounded[i], field_bounded[(i+1)%nx]])
+                fieldmax[i] = max([field_bounded[i-1], field_bounded[i], field_bounded[(i+1)%nx]]) # To avoid monotonic artefacts I would need to remove i+1 for max and min to avoid artefacts in the solution (came up with the SWIFT testcase). However, decided not to do so for the paper in the end.
+                fieldmin[i] = min([field_bounded[i-1], field_bounded[i], field_bounded[(i+1)%nx]]) 
     # For global allowable min/max
     if ymin is not None:
         fieldmin = np.full(nx, ymin)#np.where(fieldmin < ymin, ymin, fieldmin)
@@ -30,7 +30,7 @@ def set_extrema(nx, uf, field_bounded, field_previous, use_previous=False, only_
     return fieldmin, fieldmax
 
 
-def iterFCT(flx_HO, dxc, dt, uf, C, theta, field_previous, use_previous=False, niter=1, ymin=None, ymax=None):
+def iterFCT(flx_HO, dxc, dt, uf, C, theta_remove, field_previous, use_previous=False, niter=1, ymin=None, ymax=None):
     """This function implements iterative FCT, as described in MULES_HW.pdf (/strang_carryover_1d paper as MULES_HW.pdf has some notational problems)
     ymax and ymin are overall global min/max values if set.
     previous: previous time step field - True: element uses field_previous for extrema, not if False. Defined at i-1/2
@@ -48,6 +48,7 @@ def iterFCT(flx_HO, dxc, dt, uf, C, theta, field_previous, use_previous=False, n
     C_in = (ufp - np.roll(ufm,-1))*dt/dxc # [i] at i
     theta = np.maximum(0., 1. - 1./(C_in + C_out)) # [i] at i # paper version needs this in a separate function
     thetaf = np.maximum(np.roll(theta,1), theta) # [i] at i-1/2
+    #thetaf = np.ones(nx) # [i] at i-1/2
 
     # !!! include the previous field into extrema when C<=1 as well?
 
@@ -66,6 +67,45 @@ def iterFCT(flx_HO, dxc, dt, uf, C, theta, field_previous, use_previous=False, n
 
     # Set allowable min and max values (not iterated over!)
     fieldmin, fieldmax = set_extrema(nx, uf, field_bounded, field_previous, use_previous, ymin=ymin, ymax=ymax) 
+
+    #plt.plot(ufp_thetaf)
+    #plt.plot(ufm_thetaf)
+    #plt.show()
+
+    #plt.plot(field_bounded, label='bounded')
+    #plt.plot(fieldmin, label='min')
+    #plt.plot(fieldmax, label='max')
+    #plt.legend()
+    #plt.show()
+
+
+    ###!#### # Making it implicit upwind:
+###!#### 
+    ###!#### # Calculate bounded field and bounded flux - 1 time step of AdImEx Upwind low-order bounded (.. with 1-1/c_total for theta) solution (this will subsequently be updated in FCT iteration loop)
+    ###!#### #ufp_thetaf, ufm_thetaf = thetaf*ufp, thetaf*ufm # [i] at i-1/2
+    ###!#### M = np.zeros((nx, nx))
+    ###!#### for i in range(nx): 
+    ###!####     M[i,i] = 1. + dt*(ufp[(i+1)%nx] - ufm[i])/dxc[i]
+    ###!####     M[i,(i-1)%nx] = -dt*ufp[i]/dxc[i]
+    ###!####     M[i,(i+1)%nx] = dt*ufm[(i+1)%nx]/dxc[i]
+###!#### 
+    ###!#### #ufp_1mthetaf, ufm_1mthetaf = (1.-thetaf)*ufp, (1.-thetaf)*ufm # [i] at i-1/2
+    ###!#### #rhs = field_previous # [i] at i
+    ###!#### field_bounded = np.linalg.solve(M, field_previous) # [i] at i
+    ###!#### flx_bounded = ufp*np.roll(field_bounded,1) + ufm*field_bounded # [i] at i-1/2
+###!#### 
+    ###!#### #print(use_previous)
+    ###!#### # Set allowable min and max values (not iterated over!)
+    ###!#### fieldmin, fieldmax = set_extrema(nx, uf, field_bounded, field_previous, use_previous, ymin=ymin, ymax=ymax) 
+###!#### 
+    ###plt.plot(field_previous, label='previous')
+    ###plt.plot(field_bounded, label='bounded')
+    ###plt.plot(ufp/10.)
+    ###plt.plot(ufm)
+    ###plt.legend()
+    ###plt.show()
+    #plt.show()
+
 
     # FCT iteration loop
     for iiter in range(niter):
@@ -96,6 +136,12 @@ def iterFCT(flx_HO, dxc, dt, uf, C, theta, field_previous, use_previous=False, n
         # Update the bounded flux and field
         flx_bounded += face_limiter*corr
         field_bounded = field_previous - dt/dxc*(np.roll(flx_bounded,-1) - flx_bounded)
+
+        #plt.plot(flx_HO, label='flx_HO')
+        #plt.plot(flx_bounded, label='flx_bounded')
+        #plt.plot(field_bounded*8, label='field_bounded')
+        #plt.legend()
+        #plt.show()
 
     # Output limited field[it+1] = field_bounded after niter iterations
     return field_bounded

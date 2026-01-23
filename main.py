@@ -70,13 +70,13 @@ def fig_uniform_advection():
     axcol = 0
     for C_i, u_i, nt_i, theta_i in zip(C, u, nt, theta):
         psi_AdHImEx = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx))
-        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCTiter=1, FCT_use_previous=C_i<=1.)
-        psi_AdHImEx_FCTPD = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCTiter=1, FCT_min=0., FCT_max=10000.)
+        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCTiter=1)#, FCT_use_previous=C_i<=1.)
+        psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCTiter=1, FCT_min=0., FCT_max=10000.)
         psi_WKS24 = sch.WKS24(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx))
         ax[axrow, axcol].plot(xc, init, color='gray', linestyle='--', label='Initial')
         ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdHImEx', marker='x')
         ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdHImEx FCT')
-        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTPD[-1], color='cyan', linestyle='-', label='AdHImEx FCT PD', marker='x')
+        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdHImEx FCT NN', marker='x')
         ax[axrow, axcol].plot(xc, psi_WKS24[-1], color='magenta', linestyle='-', label='WKS24')
         ax[axrow, axcol].set_title(f'$C={C_i:.2f}$, $\\theta={theta_i:.2f}$', size=20)
         #ax[axrow, axcol].text(-0.1, 1.1, string.ascii_lowercase[C.index(C_i)], transform=ax[axrow, axcol].transAxes, size=20, weight='bold')        
@@ -109,29 +109,37 @@ def fig_order_of_accuracy():
     C = [dt[0]*u_i/dx[0] for u_i in u]
     theta = [sch.implicitness(C_i) for C_i in C]
 
-    fig, ax = plt.subplots(figsize=(4,4))
+    fig, ax = plt.subplots(1, 2, figsize=(8,4), sharey=True)
     colors = ['black', '#810f7c','#8856a7','#8c96c6','#b3cde3']
     for C_i, theta_i, colors_i, u_i in zip(C, theta, colors, u):
-        l2_AdHImEx = []
+        l2_WKS24, l2_AdHImEx = [], []
         for dt_i, dx_i, nt_i, nx_i in zip(dt, dx, nt, nx):
             xc = np.linspace(0., xmax, nx_i, endpoint=False)
             init = an.sine(xc, xmax, u=0., t=0.)
             analytic = an.sine(xc, xmax, u=u_i, t=dt_i*nt_i)
+            psi_WKS24 = sch.WKS24(init, nt_i, dt_i, np.full((nt_i,nx_i), u_i), np.full(nx_i, dx_i))
             psi_AdHImEx = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx_i), u_i), np.full(nx_i, dx_i))
+            l2_WKS24.append(l2norm(psi_WKS24[-1], analytic, dx_i))
             l2_AdHImEx.append(l2norm(psi_AdHImEx[-1], analytic, dx_i))
-        ax.plot(dx, l2_AdHImEx, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
+        ax[0].plot(dx, l2_WKS24, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
+        ax[1].plot(dx, l2_AdHImEx, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
+
+    # Plotting details
     gridscale = np.logspace(0, np.log10(4), num=3)
     secondorder = 7e-5*gridscale**2#2.*1e-4*0.8*gridscale**2
     thirdorder = 5e-6*gridscale**3#7.*1e-8*0.8*gridscale**3
     fifthorder = 1.9e-10*gridscale**5
-    ax.plot(dx, secondorder, color='grey', linestyle=':')
-    ax.plot(dx, thirdorder, color='grey', linestyle=':')
-    ax.plot(dx, fifthorder, color='grey', linestyle=':')
-    ax.legend()
-    ax.set_yscale('log')
-    ax.set_xscale('log')
-    ax.set_xlabel('$\\Delta x$')
-    ax.set_ylabel('$l_2$ norm')
+    for a in ax:
+        a.plot(dx, secondorder, color='grey', linestyle=':')
+        a.plot(dx, thirdorder, color='grey', linestyle=':')
+        a.plot(dx, fifthorder, color='grey', linestyle=':')
+        a.set_yscale('log')
+        a.set_xscale('log')
+        a.set_xlabel('$\\Delta x$')
+    ax[0].legend(loc='lower right')
+    ax[0].set_ylabel('$l_2$ norm')
+    ax[0].set_title('WKS24')
+    ax[1].set_title('AdHImEx')
     #plt.tight_layout()
     fig.savefig('figures/order_of_accuracy.pdf', dpi=300)
     plt.close(fig)
@@ -196,14 +204,14 @@ def fig_nonuniform_advection():
     ax1.axhline(1, color='k', linestyle=':', linewidth=0.7)
     ax1.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
     ax1.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
-    line_CEx = ax1.plot(xf, C_Ex, label='Ex $C_f$', color='gray', linestyle='-')
-    line_thetaEx = ax2.plot(xf, theta_Ex, label='Ex $\\theta_f$', color='gray', linestyle='--')
-    line_CAdImEx = ax1.plot(xf, C_AdImEx, label='AdImEx $C_f$', color='k', linestyle='-')            
-    line_thetaAdImEx = ax2.plot(xf, theta_AdImEx, label='AdImEx $\\theta_f$', color='k', linestyle='--')   
+    line_CEx = ax1.plot(xf, C_Ex, label='Ex $C$', color='gray', linestyle='-')
+    line_thetaEx = ax2.plot(xf, theta_Ex, label='Ex $\\theta$', color='gray', linestyle='--')
+    line_CAdImEx = ax1.plot(xf, C_AdImEx, label='AdImEx $C$', color='k', linestyle='-')            
+    line_thetaAdImEx = ax2.plot(xf, theta_AdImEx, label='AdImEx $\\theta$', color='k', linestyle='--')   
     ax1.set_xlim(0.,1.)
     ax1.set_xlabel('x')
-    ax1.set_ylabel('$C_f$')
-    ax2.set_ylabel('$\\theta_f$')
+    ax1.set_ylabel('$C$')
+    ax2.set_ylabel('$\\theta$')
     # Create a single legend for both axes
     lns = line_CEx + line_CAdImEx + line_thetaEx + line_thetaAdImEx
     labs = [l.get_label() for l in lns]
@@ -398,52 +406,96 @@ def fig_substages():
 
     # Run schemes and plot all in one plot
     nstages = 7    
-    substages = np.zeros((nstages,nx))
-    psi_AdHImEx = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx, output_substages=True, substages=substages)
+    substages_spurdiv, substages = np.zeros((nstages,nx)), np.zeros((nstages,nx))
+    psi_AdHImEx_spurdiv = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx, divfree=False, output_substages=True, substages=substages_spurdiv)
+    psi_AdHImEx = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx,output_substages=True, substages=substages)
     psi_Ex = sch.AdHImEx(psi_in, nt_Ex, dt_Ex, uf, dx)
+
+    # Calculate l2 norms of final time steps
+    l2_AdHImEx_spurdiv = l2norm(psi_AdHImEx_spurdiv[-1], psi_Ex[-1], dx[0])
+    l2_AdHImEx_divfree = l2norm(psi_AdHImEx[-1], psi_Ex[-1], dx[0])
+    with open('substage_l2norms.out', 'w') as f:
+        f.write(f'l2 norm AdHImEx spurdiv: {l2_AdHImEx_spurdiv:.6e}\n')
+        f.write(f'l2 norm AdHImEx divfree: {l2_AdHImEx_divfree:.6e}\n')
+
     # Plot substages fields
-    fig, ax = plt.subplots(figsize=(10,5))
-    ax.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
-    ax.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
-    ax.plot(xc, psi_in, linestyle='--', color='gray', label='Initial')
-    ax.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
-    for isub in range(2,nstages-2):
-        ax.plot(xc, substages[isub], marker='x', linestyle='-', color=plt.cm.viridis(isub*1.5/nstages), label=f'$k={isub}$')
-    ax.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    ax.tick_params(labelsize=15)
-    ax.set_xlim(0.,1.)
-    ax.set_xlabel('x', size=15)
-    ax.set_ylabel('$\\Psi$', size=15)
-    ax.legend(fontsize=15)
+    fig, ax = plt.subplots(1, 2, figsize=(20,6), sharey=True)
+    colors = ['blue','olive','mediumaquamarine']
 
+    for a in ax:
+        a.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
+        a.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
+        a.plot(xc, psi_in, linestyle='--', color='gray', label='Initial')
+        a.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
+    for isub in range(2,nstages-2):
+        ax[0].plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+        ax[1].plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+    ax[0].plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
+    ax[1].plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
+    for a in ax:
+        a.tick_params(labelsize=15)
+        a.set_xlim(0.,1.)
+        a.set_xlabel('x', size=15)
+    ax[0].set_ylabel('$\\Psi$', size=15)
+    ax[0].legend(fontsize=15)
+
+    # First inset in both plots
     x1_range = (0.28, 0.33)
-    inset1 = ax.inset_axes([0.05, 0.55, 0.2, 0.4])
-    inset1.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
-    inset1.plot(xc, psi_in, linestyle='--', color='gray')
-    inset1.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
+    inset1_ax0 = ax[0].inset_axes([0.05, 0.55, 0.2, 0.4])
+    inset1_ax0.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
+    inset1_ax0.plot(xc, psi_in, linestyle='--', color='gray')
+    inset1_ax0.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
     for isub in range(2,nstages-2):
-        inset1.plot(xc, substages[isub], marker='x', linestyle='-', color=plt.cm.viridis(isub*1.5/nstages), label=f'$k={isub}$')
-    inset1.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    inset1.tick_params(labelsize=12)
-    inset1.set_xlim(*x1_range)
-    inset1.set_ylim(48, 60)
-    #inset1.tick_params(labelsize=8)
-    mark_inset(ax, inset1, loc1=1, loc2=3, fc="none", ec="0.5")    
-    
-    x2_range = (0.68, 0.73)
-    inset2 = ax.inset_axes([0.45, 0.2, 0.2, 0.4])
-    inset2.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
-    inset2.plot(xc, psi_in, linestyle='--', color='gray')
-    inset2.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
-    for isub in range(2,nstages-2):
-        inset2.plot(xc, substages[isub], marker='x', linestyle='-', color=plt.cm.viridis(isub*1.5/nstages), label=f'$k={isub}$')
-    inset2.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    inset2.tick_params(labelsize=12)
-    inset2.set_xlim(*x2_range)
-    inset2.set_ylim(70, 82)
-    #inset2.tick_params(labelsize=8)
-    mark_inset(ax, inset2, loc1=2, loc2=4, fc="none", ec="0.5")
+        inset1_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+    inset1_ax0.plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
+    inset1_ax0.tick_params(labelsize=12)
+    inset1_ax0.set_xlim(*x1_range)
+    inset1_ax0.set_ylim(48, 60)
+    #inset1_ax0.tick_params(labelsize=8)
+    mark_inset(ax[0], inset1_ax0, loc1=1, loc2=3, fc="none", ec="0.5")    
 
+    inset1_ax1 = ax[1].inset_axes([0.05, 0.55, 0.2, 0.4])
+    inset1_ax1.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
+    inset1_ax1.plot(xc, psi_in, linestyle='--', color='gray')
+    inset1_ax1.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
+    for isub in range(2,nstages-2):
+        inset1_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+    inset1_ax1.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
+    inset1_ax1.tick_params(labelsize=12)
+    inset1_ax1.set_xlim(*x1_range)
+    inset1_ax1.set_ylim(48, 60)
+    #inset1_ax1.tick_params(labelsize=8)
+    mark_inset(ax[1], inset1_ax1, loc1=1, loc2=3, fc="none", ec="0.5")    
+
+    # Second inset in both plots
+    x2_range = (0.68, 0.73)
+    inset2_ax0 = ax[0].inset_axes([0.45, 0.2, 0.2, 0.4])
+    inset2_ax0.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
+    inset2_ax0.plot(xc, psi_in, linestyle='--', color='gray')
+    inset2_ax0.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
+    for isub in range(2,nstages-2):
+        inset2_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+    inset2_ax0.plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
+    inset2_ax0.tick_params(labelsize=12)
+    inset2_ax0.set_xlim(*x2_range)
+    inset2_ax0.set_ylim(70, 82)
+    #inset2_ax0.tick_params(labelsize=8)
+    mark_inset(ax[0], inset2_ax0, loc1=2, loc2=4, fc="none", ec="0.5")
+
+    inset2_ax1 = ax[1].inset_axes([0.45, 0.2, 0.2, 0.4])
+    inset2_ax1.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
+    inset2_ax1.plot(xc, psi_in, linestyle='--', color='gray')
+    inset2_ax1.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
+    for isub in range(2,nstages-2):
+        inset2_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+    inset2_ax1.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
+    inset2_ax1.tick_params(labelsize=12)
+    inset2_ax1.set_xlim(*x2_range)
+    inset2_ax1.set_ylim(70, 82)
+    #inset2_ax1.tick_params(labelsize=8)
+    mark_inset(ax[1], inset2_ax1, loc1=2, loc2=4, fc="none", ec="0.5")
+
+    plt.tight_layout()
     plt.savefig('figures/substages.pdf', dpi=300)
     plt.close()
 
@@ -459,6 +511,7 @@ def fig_nonuniform_advection_swift():
     xf = np.linspace(-0.5*xmax, 0.5*xmax, nx, endpoint=False)
     xc = xf + 0.5*dx
     uf = an.velocity_varying_time_space_swift_2Dnondiv(nt, dt, xf)
+    ufEx = an.velocity_varying_time_space_swift_2Dnondiv(nt*5, dt*0.2, xf)
     init = an.sine_swift(xc, xmax)
     
     # Plot the final C and theta fields
@@ -467,11 +520,11 @@ def fig_nonuniform_advection_swift():
     fig, ax1 = plt.subplots(figsize=(4,3))
     ax2 = ax1.twinx()
     ax1.axhline(1, color='k', linestyle=':', linewidth=0.7)
-    line_C = ax1.plot(xf, C, label='$C_f$', color='k', linestyle='-')
-    line_theta = ax2.plot(xf, theta, label='$\\theta_f$', color='k', linestyle='--')
+    line_C = ax1.plot(xf, C, label='$C$', color='k', linestyle='-')
+    line_theta = ax2.plot(xf, theta, label='$\\theta$', color='k', linestyle='--')
     ax1.set_xlabel('x')
-    ax1.set_ylabel('$C_f$')
-    ax2.set_ylabel('$\\theta_f$')
+    ax1.set_ylabel('$C$')
+    ax2.set_ylabel('$\\theta$')
     # Create a single legend for both axes
     lns = line_C + line_theta
     labs = [l.get_label() for l in lns]
@@ -481,52 +534,75 @@ def fig_nonuniform_advection_swift():
     plt.close()
 
     # Run schemes
-    fig, ax = plt.subplots(1,1, figsize=(10,5))
+    psi_Ex = sch.AdHImEx(init, nt*5, dt*0.2, ufEx, np.full(nx,dx))
     psi_AdHImEx = sch.AdHImEx(init, nt, dt, uf, np.full(nx,dx))
     psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCTiter=1)
-    psi_AdHImEx_FCTPD = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCTiter=1, FCT_min=0., FCT_max=10000.)
-    #psi_AdHImEx_FCT2 = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCTiter=2)
-    #psi_AdHImEx_FCT3 = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCTiter=3)
+    psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCTiter=1, FCT_min=0., FCT_max=10000.)
     psi_WKS24 = sch.WKS24(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx))
+
+    #for i in range(len(psi_AdHImEx[-1])):
+    #    print(i, psi_AdHImEx_FCT1[-1][i])
 
     # Calculate l2 norms
     with open('swift_l2norms.out', 'w') as f:
-        f.write('l2_AdHImEx, l2_AdHImEx_FCT1, l2_AdHImEx_FCTPD, l2_WKS24\n')
+        f.write('l2_Ex, l2_AdHImEx, l2_AdHImEx_FCT1, l2_AdHImEx_FCTNN, l2_WKS24\n')
         #for it in range(nt):
             #analytic = an.sine_swift(xc - np.sum(uf[:it+1], axis=0)*dt, xmax)
+        l2_Ex = l2norm(psi_Ex[-1], init, dx)
         l2_AdHImEx = l2norm(psi_AdHImEx[-1], init, dx)
         l2_AdHImEx_FCT1 = l2norm(psi_AdHImEx_FCT1[-1], init, dx)
-        l2_AdHImEx_FCTPD = l2norm(psi_AdHImEx_FCTPD[-1], init, dx)
-        #l2_AdHImEx_FCT2 = l2norm(psi_AdHImEx_FCT2[-1], analytic, dx)
-        #l2_AdHImEx_FCT3 = l2norm(psi_AdHImEx_FCT3[-1], analytic, dx)
+        l2_AdHImEx_FCTNN = l2norm(psi_AdHImEx_FCTNN[-1], init, dx)
         l2_WKS24 = l2norm(psi_WKS24[-1], init, dx)
-        f.write(f'{l2_AdHImEx:.6e} {l2_AdHImEx_FCT1:.6e} {l2_AdHImEx_FCTPD:.6e} {l2_WKS24:.6e}\n')
+        f.write(f'{l2_Ex:.6e} {l2_AdHImEx:.6e} {l2_AdHImEx_FCT1:.6e} {l2_AdHImEx_FCTNN:.6e} {l2_WKS24:.6e}\n')
+
+    # Plot l2 norms
+    #fig, ax = plt.subplots(figsize=(3,5))
+    #l2norms = [l2_AdHImEx, l2_AdHImEx_FCT1, l2_AdHImEx_FCTNN, l2_WKS24]
+    ##labels = []#'AdHImEx', 'AdHImEx FCT1', 'AdHImEx FCT NN', 'WKS24']
+    #ax.bar(np.arange(len(l2norms)), l2norms, color=['k', 'blue', 'cyan', 'magenta'])
+    #ax.set_yscale('log')
+    #ax.set_ylabel('$l_2$ norm')
+    #ax.yaxis.tick_right()                
+    #ax.yaxis.set_label_position("right")
+    #ax.set_xticks([])
+    #plt.tight_layout()
+    #plt.savefig('figures/swift_l2norms.pdf', dpi=300)
+    #plt.close(fig)
     
     # Plot results
+    fig, ax = plt.subplots(1,2, figsize=(13,5), width_ratios=[4, 1])
     AdImExcolors = ['#543005', '#bf812d', 'orange', 'orangered']
-    ax.plot(xc, init, color='gray', linestyle='--', marker='x', label='Initial')
+    ax[0].plot(xc, init, color='gray', linestyle='--', marker='x', label='Initial')
+    ax[0].plot(xc, psi_Ex[nt*5], color='green', linestyle='-', label=f'Ex $n_t = {nt*5}$', marker='+')
     for it in [10, 20, 30, 40, 50]:
         if it == 50:
-            ax.plot(xc, psi_AdHImEx[it], color='k', linestyle='-', label=f'AdHImEx $n_t = {it}$', marker='+')
-            ax.plot(xc, psi_AdHImEx_FCT1[it], color='blue', linestyle='-', label=f'AdHImEx FCT $n_t = {it}$')
-            ax.plot(xc, psi_AdHImEx_FCTPD[it], color='cyan', linestyle='-', label=f'AdHImEx FCT PD $n_t = {it}$')
-            #ax.plot(xc, psi_AdHImEx_FCT2[it], color='cornflowerblue', linestyle='-', label=f'AdHImEx 2FCT $n_t = {it}$')
-            #ax.plot(xc, psi_AdHImEx_FCT3[it], color='skyblue', linestyle='-', label=f'AdHImEx 3FCT $n_t = {it}$')
-            ax.plot(xc, psi_WKS24[it], color='magenta', linestyle='-', label=f'WKS24 $n_t = {it}$')
+            ax[0].plot(xc, psi_AdHImEx[it], color='k', linestyle='-', label=f'AdHImEx $n_t = {it}$', marker='+')
+            ax[0].plot(xc, psi_AdHImEx_FCT1[it], color='blue', linestyle='-', label=f'AdHImEx FCT $n_t = {it}$')
+            ax[0].plot(xc, psi_AdHImEx_FCTNN[it], color='cyan', linestyle='-', label=f'AdHImEx FCT NN $n_t = {it}$')
+            ax[0].plot(xc, psi_WKS24[it], color='magenta', linestyle='-', label=f'WKS24 $n_t = {it}$')
         else: 
-            ax.plot(xc, psi_AdHImEx[it], color=AdImExcolors[(it-1)//10], linestyle=':', label=f'AdHImEx $n_t = {it}$', linewidth=0.9)
-    ax.tick_params(labelsize=15)
-    ax.set_xlabel('x', size=15)
-    ax.set_ylabel('$\\Psi$', size=15)
-    ax.legend(fontsize=15)
+            ax[0].plot(xc, psi_AdHImEx[it], color=AdImExcolors[(it-1)//10], linestyle=':', label=f'AdHImEx $n_t = {it}$', linewidth=0.9)
+    ax[0].tick_params(labelsize=15)
+    ax[0].set_xlabel('x', size=15)
+    ax[0].set_ylabel('$\\Psi$', size=15)
+    ax[0].legend(fontsize=15)
+
+    # Plot l2 norms
+    l2norms = [l2_Ex, l2_AdHImEx, l2_AdHImEx_FCT1, l2_AdHImEx_FCTNN, l2_WKS24]
+    ax[1].bar(np.arange(len(l2norms)), l2norms, color=['green', 'k', 'blue', 'cyan', 'magenta'])
+    ax[1].tick_params(size=15)
+    ax[1].set_yscale('log')
+    ax[1].set_ylabel('$l_2$ norm', size=15)
+    ax[1].yaxis.tick_right()               
+    ax[1].yaxis.set_label_position("right")
+    ax[1].set_xticks([])
+    plt.tight_layout()
     fig.savefig('figures/nonuniform_advection_swift.pdf', dpi=300)
     plt.close(fig)
 
 
 def main():
-
-    # !!! change fontsize everywhere
-    #     
+    
     if not os.path.exists('figures'):
         os.makedirs('figures')
 
@@ -551,7 +627,7 @@ def main():
     #fig_substages()
 
     ######## FIGURE: Nonuniform advection SWIFT testcase ########
-    #fig_nonuniform_advection_swift()
+    fig_nonuniform_advection_swift()
 
 
     print('...done')
