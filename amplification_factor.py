@@ -1,12 +1,12 @@
 """This file includes function to calculate the amplification factor for the AdHImEx scheme."""
 
+
 import numpy as np
 import sympy as sy
 
 
 def butcher_AdHImEx_symbolic():
-    """This function returns the Butcher tableau for the AdHImEx method."""
-    # Defining the Butcher tableaus - theta is implicitness. theta = 0 is explicit, theta = 1 is implicit
+    """This function returns the symbolic Butcher tableau for the AdHImEx method."""
 
     theta, A_Ex, b_Ex, A_Im, b_Im = sy.symbols('theta A_Ex b_Ex A_Im b_Im', real=True)
 
@@ -23,14 +23,13 @@ def butcher_AdHImEx_symbolic():
     return A.col_join(b.T).row_join(sy.Matrix(np.zeros(len(b)+1)))
     
 
-def space_AdHImEx_symbolic(kdx): # assumes exp() form of solution for VNSA
-    """This function returns the amplification factor for the derivative of the fifth302 method without the division by dx (this is included in C outside of this function)."""
+def space_AdHImEx_symbolic(kdx):
+    """This function returns the symbolic amplification for the fifth-order spatial discretisation, without the division by dx (this is included in C outside of this function)."""
     return -1/20*np.exp(2j*kdx) + 0.5*np.exp(1j*kdx) + 1/3 - np.exp(-1j*kdx) + 0.25*np.exp(-2j*kdx) - 1/30*np.exp(-3j*kdx)
 
 
-
 def amplificationfactor_symbolic(butcher):
-    # assume uniform velocity in space and time and a uniform grid.
+    """This function calculates the symbolic amplification factor for a given Butcher tableau function."""
 
     SD, C = sy.symbols('SD C')
     nstages = len(butcher()[0,:])-1

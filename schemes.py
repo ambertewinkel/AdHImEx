@@ -1,21 +1,36 @@
+"""This file includes functions for the AdHImEx and WKS24 schemes."""
+
+
 import numpy as np
 import limiter as lim
 
+
+################################
+######## AdHImEx scheme ########
+################################
+
+
 def space_AdHImEx(field):
-    """Returns the flux for a spatial discretisation at [i] using [i+2], [i+1], [i], [i-1], [i-2], [i-3]. Output defined at i-1/2."""
+    """Returns the flux for the fifth-order spatial discretisation at [i] using [i+2], [i+1], [i], [i-1], [i-2], [i-3] for field. Output defined at i-1/2."""
     return -1./20*np.roll(field,-1) + 9./20.*field + 47./60.*np.roll(field,1) - 13./60.*np.roll(field,2) + 1./30.*np.roll(field,3)
 
 
-def matrix_AdHImEx(nx, dt, dx, u, alpha):
-    """This function returns the matrix M for the AdHImEx spatial discretisation. That is, the discretisation at time level n+1, which is then on the LHS combined with the field[n+1,i] term."""
+def matrix_AdHImEx(nx, dt, dxc, uf, alpha):
+    """This function returns the matrix M for the fifth-order AdHImEx spatial discretisation. Assumes uf>0.
+    nx : number of grid cells
+    dt : time step
+    dxc : cell-centred width at i
+    uf : velocity at faces ([i] at i-1/2)
+    alpha : Runge-Kutta coefficient
+    """
     M = np.zeros((nx, nx))
-    for i in range(nx): # assumes u>0 # assumes A[0,0] = A[1,1] = A[2,2] (not always true!)
-        M[i,(i-3)] = -1./30.*dt*alpha*u[i]/dx[i]
-        M[i,(i-2)] = dt*alpha*(1./30.*np.roll(u,-1)[i] + 13./60.*u[i])/dx[i]
-        M[i,i-1] = dt*alpha*(-13./60.*np.roll(u,-1)[i] - 47./60.*u[i])/dx[i]
-        M[i,i] = 1. + dt*alpha*(47./60.*np.roll(u,-1)[i] - 9./20.*u[i])/dx[i]
-        M[i,(i+1)%nx] = dt*alpha*(9./20.*np.roll(u,-1)[i] + 1./20.*u[i])/dx[i]
-        M[i,(i+2)%nx] = -1./20.*dt*alpha*np.roll(u,-1)[i]/dx[i]
+    for i in range(nx):
+        M[i,(i-3)] = -1./30.*dt*alpha*uf[i]/dxc[i]
+        M[i,(i-2)] = dt*alpha*(1./30.*np.roll(uf,-1)[i] + 13./60.*uf[i])/dxc[i]
+        M[i,i-1] = dt*alpha*(-13./60.*np.roll(uf,-1)[i] - 47./60.*uf[i])/dxc[i]
+        M[i,i] = 1. + dt*alpha*(47./60.*np.roll(uf,-1)[i] - 9./20.*uf[i])/dxc[i]
+        M[i,(i+1)%nx] = dt*alpha*(9./20.*np.roll(uf,-1)[i] + 1./20.*uf[i])/dxc[i]
+        M[i,(i+2)%nx] = -1./20.*dt*alpha*np.roll(uf,-1)[i]/dxc[i]
     return M
 
 
@@ -35,62 +50,73 @@ def butcherIm_AdHImEx():
 
 def ddx(fmh, fph, dxc):
     """This function computes the first derivative of a field f with respect to x with a finite-volume method. 
-    dfdx[i] = (f_{i+1/2} - f_{i-1/2})/dx
-    fmh : f_{i-1/2}
-    fph : f_{i+1/2}
+    dxc : cell-centred width at i
+    fmh : field at i-1/2
+    fph : field at i+1/2
     """
     return (fph - fmh)/dxc
 
 
-def AdHImEx(init, nt, dt, uf, dxc, divfree=True, FCTiter=0, output_substages=False, substages=np.array([]), FCT_min=None, FCT_max=None, FCT_use_previous=False):
-    """Implements the AdHImEx scheme for a given initial field, number of time steps, time step length, velocity field at cell faces, cell widths, number of FCT iterations (0 for no FCT), whether to output substages (True/False) and number of FCT iterations."""
+def AdHImEx(init, nt, dt, uf, dxc, unity=True, FCT=False, output_substages=False, substages=np.array([]), ymin=None, ymax=None, nondivergent=False):
+    """Implements the AdHImEx scheme. Returns the field at all time steps, including the initial condition: field[nt+1, nx]. Assumes periodic boundaries, uniform grid and nonnegative velocity at faces.
+    init : 1D array of floats, initial condition at t=0
+    nt   : int, number of time steps
+    dt   : float, time step length
+    uf   : 2D array of floats, velocity field at cell faces for all time
+    dxc  : 1D array of floats, cell widths
+    unity: bool, whether to use the unity preservation modification (default True)
+    FCT  : bool, whether to use FCT (default False)
+    output_substages: bool, whether to output substages (default False)
+    substages: 2D array of floats, to store the substages (default empty array)
+    FCT_min: float, minimum value for FCT limiter (None for no limit)
+    FCT_max: float, maximum value for FCT limiter (None for no limit)
+    nondivergent: bool, whether to use the nondivergent FCT algorithm (default False)
+    """
+    # General setup
     nx = len(init)
-
     field = np.zeros((nt+1, nx))
     field[0] = init.copy()
     xf = np.zeros(nx) 
-    for i in range(nx-1): # assumes uniform grid
+    for i in range(nx-1):
         xf[i+1] = xf[i] + dxc[i]
 
     # Set up Butcher tableau
     AIm, bIm = butcherIm_AdHImEx()
     AEx, bEx = butcherEx_AdHImEx()
     nstages = np.shape(bIm)[1]
-    # Resetting A to include b
-    AEx = np.concatenate((AEx,bEx), axis=0)
+    AEx = np.concatenate((AEx,bEx), axis=0) # Resetting A to include b
     AIm = np.concatenate((AIm,bIm), axis=0)
     AEx = np.concatenate((AEx, np.zeros((nstages+1,1))), axis=1)
     AIm = np.concatenate((AIm, np.zeros((nstages+1,1))), axis=1)
     flx_k, fEx_f, fIm_f, fEx_c, fIm_c, flx_contribution_from_stage_k = np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx))
 
+    # Calculating the implicitness at cell centres and faces for all time steps
     thetaf, cf, thetac, cc = np.zeros((nt,nx)), np.zeros((nt,nx)), np.zeros((nt,nx)), np.zeros((nt,nx))
-    for it in range(nt): # recalculate each unique theta for each time step (inefficient coding for uf=constant in space or time)
+    for it in range(nt):
         cf[it] = uf[it]*dt/dxc # [i] at i-1/2
-        #c_temp = np.maximum(cf[it], np.roll(cf[it],-1)) # [i] at i
-        #cf_temp = np.maximum(c_temp, np.roll(c_temp,1)) # [i] at i-1/2
-        thetaf[it] = implicitness(cf[it]) # [i] at i-1/2 # !!! is doing the max etc now correct?
+        thetaf[it] = implicitness(cf[it]) # [i] at i-1/2
         cc[it] = 0.5*(np.abs(uf[it]) - uf[it] + np.abs(np.roll(uf[it],-1)) + np.roll(uf[it],-1))*dt/dxc # [i] at i, Courant defined at cell centers based on the *outward* pointing velocities
         thetac[it] = implicitness(cc[it])
-        
-        #cc_out = 0.5*(np.abs(uf[it]) - uf[it] + np.abs(np.roll(uf[it],-1)) + np.roll(uf[it],-1))*dt/dxc # [i] at i, Courant defined at cell centers based on the *outward* pointing velocities
-        #cc_in = 0.5*(np.abs(uf[it]) + uf[it] + np.abs(np.roll(uf[it],-1)) - np.roll(uf[it],-1))*dt/dxc # [i] at i, Courant defined at cell centers based on the *inward* pointing velocities
-        #thetac_out = np.maximum(0., 1.-1./cc_out)
-        #thetac_in = np.maximum(0., 1.-1./cc_in)
-        #theta[it] = np.maximum(np.maximum(thetac_out, np.roll(thetac_out,1)), np.maximum(thetac_in, np.roll(thetac_in, 1))) # [i] at i-1/2
 
+    # Time-stepping loop
     for it in range(nt):
         field_k = field[it].copy()
         flx_HO = np.zeros(nx)
+
+        # Loop over the Runge-Kutta stages
         for ik in range(nstages+1):
-            # Calculate the field at stage k
+            # Calculate the field at stage k (field_k)
             M = matrix_AdHImEx(nx, dt, dxc, thetaf[it]*uf[it], AIm[ik,ik]) # [i] at i
-            if divfree and (ik == 1 or ik == 2):
+            if unity and (ik == 1 or ik == 2):
                 rhs_k = field[it] + dt*np.dot(AEx[ik,:ik], fEx_c[:ik,:]) + dt*np.dot(AIm[ik,:ik], fIm_c[:ik,:]) # [i] at i
             else:
                 rhs_k = field[it] + dt*np.dot(AEx[ik,:ik], fEx_f[:ik,:]) + dt*np.dot(AIm[ik,:ik], fIm_f[:ik,:]) # [i] at i
             field_k = np.linalg.solve(M, rhs_k) # [i] at i
+
+            # Store the substage field if required
             if output_substages: 
                 substages[ik+1] = field_k
+
             # Calculate the flux based on the field at stage k
             flx_k[ik,:] = uf[it]*space_AdHImEx(field_k) # [i] at i-1/2
             fEx_f[ik,:] = -ddx((1 - thetaf[it])*flx_k[ik,:], np.roll((1 - thetaf[it])*flx_k[ik,:],-1), dxc)
@@ -98,100 +124,101 @@ def AdHImEx(init, nt, dt, uf, dxc, divfree=True, FCTiter=0, output_substages=Fal
             fEx_c[ik,:] = -(1 - thetac[it])*ddx(flx_k[ik,:], np.roll(flx_k[ik,:],-1), dxc)
             fIm_c[ik,:] = -thetac[it]*ddx(flx_k[ik,:], np.roll(flx_k[ik,:],-1), dxc)  
 
-            #if not divfree:
+            # Accumulate the flux contributions from the stages (needed for FCT)
             flx_contribution_from_stage_k[ik,:] = AEx[-1,ik]*(1 - thetaf[it])*flx_k[ik,:] + AIm[-1,ik]*thetaf[it]*flx_k[ik,:]
             flx_HO += flx_contribution_from_stage_k[ik,:] 
-            #else:
-            #    flx_contribution_from_stage_k[ik,:]
-        if FCTiter > 0: # !!! To do: Calculate flx_HO differently when using divfree AdHImEx
-            #if divfree:
-            #    flx_HO = 
-            #field[it+1] = field[it] - dt/dxc*(np.roll(flx_HO,-1) - flx_HO) # preliminary field after one time step of high-order scheme
-            #plt.plot(field[it+1], label='t='+str((it+1)*dt))
-#
-            #plt.legend()
-            #plt.show()
-            #field_bounded = field_previous - dt/dxc*(np.roll(flx_bounded,-1) - flx_bounded)
-            use_previous = True if np.all(cc[it] <= 1.) else False 
-            #previous = np.full(nx, False) #[True if cf[i] <= 1. else False for i in range(nx)] # [i] at i-1/2 # determines whether FCT also uses field[it] for bounds (True/False) # could use further consideration
-            field[it+1] = lim.iterFCT(flx_HO, dxc, dt, uf[it], cf[it], thetaf[it], field[it], use_previous=use_previous, niter=FCTiter, ymin=FCT_min, ymax=FCT_max) # also option for ymin and ymax         
+
+        # Implement FCT if required
+        if FCT:
+            use_previous = np.all(cc[it] <= 1.) 
+            field[it+1] = lim.FCT(flx_HO, dxc, dt, uf[it], field[it], use_previous=use_previous, ymin=ymin, ymax=ymax, nondivergent=nondivergent)         
         else:     
             field[it+1] = field_k.copy()
-        #plt.plot(xf, field[it+1], label='t='+str((it+1)*dt))
-        #plt.legend()
-        #plt.show()
 
     return field
 
 
 def implicitness(C):
     """This function returns the AdHImEx implicitness parameter theta for a given Courant number C."""
-    #return np.maximum(0., 1.-1./C) # !!! needs changing, but first checking with this definition
     return 1. - 1./(1. + 0.7*np.maximum(0., C - 1.4))
 
 
-def matrix_WKS24(nx, dt, dxc, ufp, ufm, alpha, theta):
-    """This function returns the matrix M for the WKS24 spatial discretisation. That is, the spatial discretisation at time level n+1, which is then on the LHS combined with the field[n+1,i] term."""
+##############################
+######## WKS24 scheme ########
+##############################
+
+
+def matrix_WKS24(nx, dt, dxc, ufp, ufm, alpha, beta):
+    """This function returns the matrix M for the third-order WKS24 spatial discretisation.
+    nx : number of grid cells
+    dt : time step
+    dxc : cell-centred width at i
+    ufp : velocity at faces, pointing in positive x-direction ([i] at i-1/2)
+    ufm : velocity at faces, pointing in negative x-direction ([i] at i-1/2)
+    alpha, beta : parameters"""
     M = np.zeros((nx, nx))
-    for i in range(nx):	# includes flx_1st_k # based on implicit upwind matrices above.
-        M[i,i] = 1. + dt*(np.roll(alpha*theta*ufp,-1)[i] - alpha[i]*theta[i]*ufm[i])/dxc[i]
-        M[i,i-1] = -dt*alpha[i]*theta[i]*ufp[i]/dxc[i]
-        M[i,(i+1)%nx] = dt*np.roll(alpha*theta*ufm,-1)[i]/dxc[i]
+    for i in range(nx):
+        M[i,i] = 1. + dt*(np.roll(alpha*beta*ufp,-1)[i] - alpha[i]*beta[i]*ufm[i])/dxc[i]
+        M[i,i-1] = -dt*alpha[i]*beta[i]*ufp[i]/dxc[i]
+        M[i,(i+1)%nx] = dt*np.roll(alpha*beta*ufm,-1)[i]/dxc[i]
     return M
 
 
-def space_WKS24(psi): # quadh
-    """-- quasicubic (third-order in space for uniform grid)-- This quadratic interpolation for f[i+1/2] leads to a cubic approximation when put in the FV ddx scheme. The quadratic interpolation matches the integral of the polynomial to the integral of the field over the three cells. See notes sent by James Kent on 28-11-2024.
-    --- in ---
-    psi : field at [i]
-    --- out --- 
-    psi at [i+1/2] 
-    """
+def space_WKS24(psi):
+    """Returns the flux for the third-order WKS24 spatial discretisation at [i] for field. Output defined at i+1/2."""
     return (2.*np.roll(psi, -1) + 5.*psi - np.roll(psi, 1))/6.
 
 
 def WKS24(init, nt, dt, uf, dxc, kmax=2, set_alpha='max'):
-    """This scheme solves second-order Runge-Kutta quasi-cubic scheme. See HW notes sent on 27-11-2024."""
-    # assumes u>0
-
+    """This scheme solves the WKS24 scheme. Assumes uniform grid and uf>0
+    init : 1D array of floats, initial condition at t=0
+    nt   : int, number of time steps
+    dt   : float, time step length
+    uf   : 2D array of floats, velocity field at cell faces for all time
+    dxc  : 1D array of floats, cell-centred widths
+    kmax : int, number of corrector iterations
+    set_alpha : string, either 'max' or 'half' to set the alpha parameter
+    """
+    # Setup 
     nx = len(init)
     field = np.zeros((nt+1, nx))
     field[0] = init.copy()
-    fieldh_HO_n, flx_HO_n, fieldh_1st_km1, flx_1st_km1, fieldh_HO_km1, fieldh_HOC_km1, flx_HOC_km1, rhs, theta = np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx)
+    fieldh_HO_n, flx_HO_n, fieldh_1st_km1, flx_1st_km1, fieldh_HO_km1, fieldh_HOC_km1, flx_HOC_km1, rhs, beta = np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx), np.zeros(nx)
 
+    # Time-stepping loop
     for it in range(nt):
-        ufp = 0.5*(uf[it] + abs(uf[it])) # uf[i] is at i-1/2
-        ufm = 0.5*(uf[it] - abs(uf[it]))
-        C = dt*uf[it]/dxc # assumes uniform grid
-        #alpha = np.maximum(0.5, 1. - 1./c) # assumes uniform grid # alpha[i] is at i-1/2
+        # Set beta
+        ufp = 0.5*(uf[it] + abs(uf[it])) # [i] at i-1/2
+        ufm = 0.5*(uf[it] - abs(uf[it])) # [i] at i-1/2        
+        C = dt*uf[it]/dxc
         for i in range(nx):
-            theta[i] = 0. if C[i] < 0.8 else 1 # theta[i] is at i-1/2 # check definition with paper
+            beta[i] = 0. if C[i] < 0.8 else 1 # [i] at i-1/2
 
-        if set_alpha == 'max': # assumes uniform grid # alpha[i] is at i-1/2
+        # Set alpha parameter
+        if set_alpha == 'max':# [i] at i-1/2
             alpha = np.maximum(0.5, 1. - 1./C)
         elif set_alpha == 'half':
             alpha = np.full(len(init), 0.5)
         else:
-            print('Error: set_alpha must be either "half" or "max"') # !!! figure out this error handling properly. + perhaps can just set alpha as one option... check scheme definition in paper
+            print('Error: set_alpha must be either "half" or "max"')
             return
         
-        field[it+1] = field[it].copy() # not actually in the equations, this is to make the computer code more concise
-        M = matrix_WKS24(nx, dt, dxc, ufp, ufm, alpha, theta) # [i] at i
+        # Predictor-corrector iterations
+        field[it+1] = field[it].copy() # this is to make the code more concise
+        M = matrix_WKS24(nx, dt, dxc, ufp, ufm, alpha, beta) # [i] at i
         for k in range(kmax):
-            for i in range(nx): # !!! make this upwind? # also make it look nicer with np.roll
-                fieldh_HO_n[i] = space_WKS24(np.roll(field[it],1))[i] # [i] defined at i-1/2
-                flx_HO_n[i] = (1. - alpha[i])*uf[it, i]*fieldh_HO_n[i] # [i] defined at i-1/2
-                fieldh_1st_km1[i] = field[it+1,i-1] # upwind # [i] defined at i-1/2 # not actually field[it+1], this is to make the computer code more concise
-                flx_1st_km1[i] = alpha[i]*(1. - theta[i])*uf[it, i]*fieldh_1st_km1[i] # [i] defined at i-1/2
-                fieldh_HO_km1[i] = space_WKS24(np.roll(field[it+1],1))[i] # [i] defined at i-1/2
-                fieldh_HOC_km1[i] = fieldh_HO_km1[i] - fieldh_1st_km1[i] #fieldh_HO_n[i] - fieldh_1st_km1[i] # [i] defined at i-1/2
-                flx_HOC_km1[i] = alpha[i]*uf[it, i]*fieldh_HOC_km1[i] # [i] defined at i-1/2
+            for i in range(nx): 
+                fieldh_HO_n[i] = space_WKS24(np.roll(field[it],1))[i] # [i] at i-1/2
+                flx_HO_n[i] = (1. - alpha[i])*uf[it, i]*fieldh_HO_n[i] # [i] at i-1/2
+                fieldh_1st_km1[i] = field[it+1,i-1] # [i] at i-1/2 # not actually field[it+1], this is to make the code more concise
+                flx_1st_km1[i] = alpha[i]*(1. - beta[i])*uf[it, i]*fieldh_1st_km1[i] # [i] at i-1/2
+                fieldh_HO_km1[i] = space_WKS24(np.roll(field[it+1],1))[i] # [i] at i-1/2
+                fieldh_HOC_km1[i] = fieldh_HO_km1[i] - fieldh_1st_km1[i] # [i] at i-1/2
+                flx_HOC_km1[i] = alpha[i]*uf[it, i]*fieldh_HOC_km1[i] # [i] at i-1/2
             for i in range(nx):
                 rhs[i] = field[it,i] - dt*(ddx(flx_HO_n[i], flx_HO_n[(i+1)%nx], dxc[i]) + \
                         ddx(flx_1st_km1[i], flx_1st_km1[(i+1)%nx], dxc[i]) + \
-                        ddx(flx_HOC_km1[i], flx_HOC_km1[(i+1)%nx], dxc[i])) # [i] defined at i
+                        ddx(flx_HOC_km1[i], flx_HOC_km1[(i+1)%nx], dxc[i])) # [i] at i
             field[it+1] = np.linalg.solve(M, rhs)    
 
     return field
-
-# !!! make sure upwind code is actually upwind

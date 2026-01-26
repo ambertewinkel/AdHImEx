@@ -1,5 +1,4 @@
-
-
+"""This file includes functions to produce the figures and data for the AdHImEx paper."""
 
 
 import os
@@ -10,24 +9,18 @@ import schemes as sch
 import analytic as an
 import matplotlib as mpl
 import string
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
-
-
-def l2norm(field, analytic, dxc):
-    """This calculates the l2 norm from an output field compared to the analytic solution."""
-    numerator = np.sum(dxc*(field - analytic)*(field - analytic))
-    denominator = np.sum(dxc*analytic*analytic)
-    return np.sqrt(numerator/(denominator + 1.e-16))
+from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
 
 def fig_amplification_factor():
+
     # Calculate amplification factor and implicitness
     C = np.logspace(-1, 2, 401, endpoint=True)
     theta = np.linspace(0., 1., 401, endpoint=True)
     A = af.calculate_amplification_AdHImEx(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
     theta_AdHImEx = sch.implicitness(C)
 
-    ## Design colorbar
+    # Design colorbar
     bounds = np.array([0.,0.5, 1.00000001])
     bounds = np.append(bounds, np.logspace(0,5,21)[1:])
     cmap = mpl.colormaps['viridis'].resampled(len(bounds))
@@ -55,6 +48,8 @@ def fig_amplification_factor():
 
  
 def fig_uniform_advection():
+
+    # Setup
     dt, nx, xmax = 0.01, 40, 1.
     dx = xmax/nx
     u = [1., 3.125, 6.25, 10.]
@@ -65,13 +60,14 @@ def fig_uniform_advection():
     init = an.combi(xc, xmax, u=0., t=0.)
     theta = [sch.implicitness(C_i) for C_i in C]
 
+    # Run schemes and plot
     fig, ax = plt.subplots(2, 2, figsize=(20,12))
     axrow = 0
     axcol = 0
     for C_i, u_i, nt_i, theta_i in zip(C, u, nt, theta):
         psi_AdHImEx = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx))
-        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCTiter=1)#, FCT_use_previous=C_i<=1.)
-        psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCTiter=1, FCT_min=0., FCT_max=10000.)
+        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCT=True, nondivergent=True)
+        psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
         psi_WKS24 = sch.WKS24(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx))
         ax[axrow, axcol].plot(xc, init, color='gray', linestyle='--', label='Initial')
         ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdHImEx', marker='x')
@@ -79,7 +75,6 @@ def fig_uniform_advection():
         ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdHImEx FCT NN', marker='x')
         ax[axrow, axcol].plot(xc, psi_WKS24[-1], color='magenta', linestyle='-', label='WKS24')
         ax[axrow, axcol].set_title(f'$C={C_i:.2f}$, $\\theta={theta_i:.2f}$', size=20)
-        #ax[axrow, axcol].text(-0.1, 1.1, string.ascii_lowercase[C.index(C_i)], transform=ax[axrow, axcol].transAxes, size=20, weight='bold')        
         ax[axrow, axcol].text(0.04, 0.9, string.ascii_lowercase[C.index(C_i)], transform=ax[axrow, axcol].transAxes, size=20, weight='bold')
         ax[axrow, axcol].tick_params(labelsize=20)
         ax[axrow, axcol].set_xlim(0.,1.)
@@ -91,6 +86,8 @@ def fig_uniform_advection():
         if axcol == 2:
             axcol = 0
             axrow += 1
+    
+    # Further plot details
     fig.legend(handles, labels, ncol=5, bbox_to_anchor=(0.5, -0.05), loc='lower center', fontsize=20)
     plt.tight_layout()
     fig.savefig('figures/uniform_advection.pdf', dpi=300, bbox_inches='tight')
@@ -98,8 +95,8 @@ def fig_uniform_advection():
 
 
 def fig_order_of_accuracy():
-    # I need to run the AdHImEx scheme for different C's for three dx/dt combinations, while keeping C constant for each combination. Then also add the order of accuracy lines for 1st, 2nd, and 3rd order.
 
+    # Setup
     xmax = 1.0
     nx = np.array([80, 40, 20], dtype=int)
     dx = xmax/nx
@@ -109,6 +106,7 @@ def fig_order_of_accuracy():
     C = [dt[0]*u_i/dx[0] for u_i in u]
     theta = [sch.implicitness(C_i) for C_i in C]
 
+    # Run schemes and plot
     fig, ax = plt.subplots(1, 2, figsize=(8,4), sharey=True)
     colors = ['black', '#810f7c','#8856a7','#8c96c6','#b3cde3']
     for C_i, theta_i, colors_i, u_i in zip(C, theta, colors, u):
@@ -119,15 +117,15 @@ def fig_order_of_accuracy():
             analytic = an.sine(xc, xmax, u=u_i, t=dt_i*nt_i)
             psi_WKS24 = sch.WKS24(init, nt_i, dt_i, np.full((nt_i,nx_i), u_i), np.full(nx_i, dx_i))
             psi_AdHImEx = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx_i), u_i), np.full(nx_i, dx_i))
-            l2_WKS24.append(l2norm(psi_WKS24[-1], analytic, dx_i))
-            l2_AdHImEx.append(l2norm(psi_AdHImEx[-1], analytic, dx_i))
+            l2_WKS24.append(an.l2norm(psi_WKS24[-1], analytic, dx_i))
+            l2_AdHImEx.append(an.l2norm(psi_AdHImEx[-1], analytic, dx_i))
         ax[0].plot(dx, l2_WKS24, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
         ax[1].plot(dx, l2_AdHImEx, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
 
     # Plotting details
     gridscale = np.logspace(0, np.log10(4), num=3)
-    secondorder = 7e-5*gridscale**2#2.*1e-4*0.8*gridscale**2
-    thirdorder = 5e-6*gridscale**3#7.*1e-8*0.8*gridscale**3
+    secondorder = 7e-5*gridscale**2
+    thirdorder = 5e-6*gridscale**3
     fifthorder = 1.9e-10*gridscale**5
     for a in ax:
         a.plot(dx, secondorder, color='grey', linestyle=':')
@@ -140,12 +138,13 @@ def fig_order_of_accuracy():
     ax[0].set_ylabel('$l_2$ norm')
     ax[0].set_title('WKS24')
     ax[1].set_title('AdHImEx')
-    #plt.tight_layout()
     fig.savefig('figures/order_of_accuracy.pdf', dpi=300)
     plt.close(fig)
 
 
 def fig_l2_norm_over_C():
+
+    # Setup 
     xmax = 1.
     nx = np.logspace(1, 4, 30, endpoint=True, dtype=int)
     dx = xmax/nx
@@ -153,6 +152,7 @@ def fig_l2_norm_over_C():
     C = dt*u/dx
     theta = sch.implicitness(C)
 
+    # Run schemes
     l2_AdHImEx, l2_WKS24 = [], []
     for dx_i, nx_i, C_i, theta_i in zip(dx, nx, C, theta):
         xf = np.linspace(0., xmax, nx_i, endpoint=False)
@@ -161,9 +161,10 @@ def fig_l2_norm_over_C():
         analytic = an.sine(xc, xmax, u, t=dt*nt)
         psi_AdHImEx = sch.AdHImEx(init, nt, dt, np.full((nt,nx_i), u), np.full(nx_i, dx_i))
         psi_WKS24 = sch.WKS24(init, nt, dt, np.full((nt,nx_i), u), np.full(nx_i, dx_i))
-        l2_AdHImEx.append(l2norm(psi_AdHImEx[-1], analytic, dx_i))
-        l2_WKS24.append(l2norm(psi_WKS24[-1], analytic, dx_i))
+        l2_AdHImEx.append(an.l2norm(psi_AdHImEx[-1], analytic, dx_i))
+        l2_WKS24.append(an.l2norm(psi_WKS24[-1], analytic, dx_i))
 
+    # Plotting details
     fig, ax = plt.subplots(figsize=(6,4))
     ax.plot(C, l2_AdHImEx, marker='x', label='AdHImEx', color='k')
     ax.plot(C, l2_WKS24, marker='x', label='WKS24', color='magenta')
@@ -178,7 +179,8 @@ def fig_l2_norm_over_C():
 
 
 def fig_nonuniform_advection():
-    # We need to set: dt, nx, nt, u_setting, analytic
+
+    # Setup
     xmax = 1.0
     dt_AdImEx = 0.004
     nt_AdImEx = 20
@@ -186,19 +188,18 @@ def fig_nonuniform_advection():
     dtfactor_ExAdImEx = 20
     dt_Ex = dt_AdImEx/dtfactor_ExAdImEx
     nt_Ex = nt_AdImEx*dtfactor_ExAdImEx
-
     xf = np.linspace(0., xmax, nx, endpoint=False)
     dx = np.full(nx,xf[1] - xf[0])
     xc = xf + 0.5*dx
-
-    psi_in = an.sine_xyshiftampl3(xc, xmax, u=0., t=0.)
-    uf = np.zeros((nt_Ex, nx)) # !!! check what happens with AdImEx time steps
+    psi_in = an.sine(xc, xmax, u=0., t=0., shifty=50., ampl=50., shiftx=0.3)
+    uf = np.zeros((nt_Ex, nx))
     for it in range(nt_Ex):
-        uf[it] = an.velocity_varying_space701(xf)
-    C_Ex, C_AdImEx = dt_Ex*uf[0]/dx, dt_AdImEx*uf[0]/dx # !!! is this at faces? + decide if uf[0] fine
+        uf[it] = an.velocity_varying_space(xf)
+    C_Ex, C_AdImEx = dt_Ex*uf[0]/dx, dt_AdImEx*uf[0]/dx
     theta_Ex = sch.implicitness(C_Ex)
     theta_AdImEx = sch.implicitness(C_AdImEx)
 
+    # Plot courant and implicitness
     fig, ax1 = plt.subplots(figsize=(4,3))
     ax2 = ax1.twinx()
     ax1.axhline(1, color='k', linestyle=':', linewidth=0.7)
@@ -218,7 +219,6 @@ def fig_nonuniform_advection():
     ax1.legend(lns, labs, loc='best')
     fig.tight_layout()
     plt.savefig('figures/nonuniform_courant_implicitness.pdf')
-    plt.savefig('figures/nonuniform_courant_implicitness.svg')
     plt.close()
 
     # Run schemes
@@ -229,14 +229,14 @@ def fig_nonuniform_advection():
     plt.figure(figsize=(10,5))
     plt.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
     plt.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
-    plt.plot(xc, psi_in, linestyle='--', color='grey', label='Initial') # plot initial condition
+    plt.plot(xc, psi_in, linestyle='--', color='grey', label='Initial')
     AdImExcolors = ['#543005', '#bf812d', '#dfc27d',  '#80cdc1', '#01665e']
-    for it in [4,8,12,16,20]: # Ex time steps
+    for it in [4,8,12,16,20]:
         if it == 4:
             plt.plot(xc, psi_Ex[it*dtfactor_ExAdImEx], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
         else:
             plt.plot(xc, psi_Ex[it*dtfactor_ExAdImEx], marker='+', linestyle='-', linewidth=0.5, color='silver')
-    for it in [4,8,12,16,20]: # AdImEx time steps
+    for it in [4,8,12,16,20]:
         plt.plot(xc, psi_AdImEx[it], marker='', linestyle='-', color=AdImExcolors[(it//4-1)%len(AdImExcolors)], label=f'$n_t = {it}$')
     plt.tick_params(labelsize=15)
     plt.xlim(0.,1.)
@@ -244,91 +244,32 @@ def fig_nonuniform_advection():
     plt.ylabel('$\\Psi$', size=15)
     plt.legend(fontsize=15)
     plt.savefig('figures/nonuniform_advection.pdf', dpi=300)
-    plt.savefig('figures/nonuniform_advection.svg', dpi=300)
     plt.close()
 
 
 def fig_substages():
 
-
-    #psi_in = an.sine_xyshiftampl3(xc, xmax, u=0., t=0.)
-    #uf = np.zeros((nt_Ex, nx)) # !!! check what happens with AdImEx time steps
-    #for it in range(nt_Ex):
-    #    uf[it] = an.velocity_varying_space701(xf)
-    #C_Ex, C_AdImEx = dt_Ex*uf[0]/dx, dt_AdImEx*uf[0]/dx # !!! is this at faces? + decide if uf[0] fine
-    #theta_Ex = sch.implicitness(C_Ex)
-    #theta_AdImEx = sch.implicitness(C_AdImEx)
-#
-    #fig, ax1 = plt.subplots(figsize=(4,3))
-    #ax2 = ax1.twinx()
-    #ax1.axhline(1, color='k', linestyle=':', linewidth=0.5)
-    #line_CEx = ax1.plot(xf, C_Ex, label='Ex $C_f$', color='gray', linestyle='-')
-    #line_thetaEx = ax2.plot(xf, theta_Ex, label='Ex $\\theta_f$', color='gray', linestyle='--')
-    #line_CAdImEx = ax1.plot(xf, C_AdImEx, label='AdImEx $C_f$', color='k', linestyle='-')            
-    #line_thetaAdImEx = ax2.plot(xf, theta_AdImEx, label='AdImEx $\\theta_f$', color='k', linestyle='--')   
-    #ax1.set_xlabel('x')
-    #ax1.set_ylabel('$C_f$')
-    #ax2.set_ylabel('$\\theta_f$')
-    ## Create a single legend for both axes
-    #lns = line_CEx + line_CAdImEx + line_thetaEx + line_thetaAdImEx
-    #labs = [l.get_label() for l in lns]
-    #ax1.legend(lns, labs, loc='best')
-    #fig.tight_layout()
-    #plt.savefig('figures/nonuniform_courant_implicitness.pdf')
-    #plt.close()
-#
-    ## Run schemes
-    #psi_Ex = sch.AdHImEx(psi_in, nt_Ex, dt_Ex, uf, dx)
-    #psi_AdImEx = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx)
-#
-    ## Plot time steps
-    #plt.figure(figsize=(10,5))
-    #plt.plot(xc, psi_in, linestyle='--', color='grey', label='Initial') # plot initial condition
-    #AdImExcolors = ['#543005', '#bf812d', '#dfc27d',  '#80cdc1', '#01665e']
-    #for it in [4,8,12,16,20]: # Ex time steps
-    #    if it == 4:
-    #        plt.plot(xc, psi_Ex[it*dtfactor_ExAdImEx], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
-    #    else:
-    #        plt.plot(xc, psi_Ex[it*dtfactor_ExAdImEx], marker='+', linestyle='-', linewidth=0.5, color='silver')
-    #for it in [4,8,12,16,20]: # AdImEx time steps
-    #    plt.plot(xc, psi_AdImEx[it], marker='', linestyle='-', color=AdImExcolors[(it//4-1)%len(AdImExcolors)], label=f'$n_t = {it}$')
-    #plt.xlabel('x')
-    #plt.ylabel('$\\Psi$')
-    #plt.legend()
-    #plt.savefig('figures/nonuniform_advection.pdf', dpi=300)
-    #plt.close()
-
-
-
-
-    ############## !!! 29-09-2025: I think the difference in Ex and AdImEx for nx=50 and dx=0.02 is because of the temporal order of convergence of the implicit scheme?? For same Courant number but higher resolution (nx=250 and dx=0.004) the difference is much smaller. So this is not a problem with the AdHImEx scheme, it is just that you want to use a certain resolution to get good results.  # maybe use nx=100 and dx=0.01 as middle ground? but slightly clogged but hey...
+    # Setup
     xmax = 1.0
-    nx = 250#100#50#100#250#50#250#50
-    dt_AdImEx = 0.004#0.01#0.02#0.01#0.004#0.02#0.01#0.02#0.004#0.02
-    nt_AdImEx = 1#5#1#2#1#2#1#3#5#1
+    nx = 250
+    dt_AdImEx = 0.004
+    nt_AdImEx = 1
     dtfactor_ExAdImEx = 20
     dt_Ex = dt_AdImEx/dtfactor_ExAdImEx
     nt_Ex = nt_AdImEx*dtfactor_ExAdImEx
     xf = np.linspace(0., xmax, nx, endpoint=False)
     dx = np.full(nx, xf[1] - xf[0])
     xc = xf + 0.5*dx
-
-    #print(nt_AdImEx, dt_AdImEx, nt_Ex, dt_Ex)
-    #print(nt_AdImEx*dt_AdImEx, nt_Ex*dt_Ex)
-    
-
-    psi_in = an.sine_xyshiftampl3(xc, xmax, u=0., t=0.)
+    psi_in = an.sine(xc, xmax, u=0., t=0., shifty=50., ampl=50., shiftx=0.3)
     uf = np.zeros((nt_Ex, nx))
     for it in range(nt_Ex):
-        uf[it] = an.velocity_varying_space701(xf)
-    C_Ex = dt_Ex*uf[0]/dx # !!! is this at faces?
-    C_AdImEx = dt_AdImEx*uf[0]/dx # !!! is this at faces?
+        uf[it] = an.velocity_varying_space(xf)
+    C_Ex = dt_Ex*uf[0]/dx
+    C_AdImEx = dt_AdImEx*uf[0]/dx 
     theta_Ex = sch.implicitness(C_Ex)
     theta_AdImEx = sch.implicitness(C_AdImEx)
-    #plt.plot(theta_AdImEx)
-    #plt.show()
-    
-    # !!! remove in final version
+
+    # Plot courant and implicitness
     fig, ax1 = plt.subplots(figsize=(4,3))
     ax2 = ax1.twinx()
     ax1.axhline(1, color='k', linestyle=':', linewidth=0.7)
@@ -350,78 +291,23 @@ def fig_substages():
     plt.savefig('figures/substages_courant_implicitness.pdf')
     plt.close()
 
-    ## Run schemes
-    #nstages = 7    
-    #substages = np.zeros((nstages,nx))
-    #psi_AdHImEx = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx, output_substages=True, substages=substages)
-    #psi_Ex = sch.AdHImEx(psi_in, nt_Ex, dt_Ex, uf, dx)
-    ## Plot substages fields
-    #plt.figure(figsize=(10,5))
-    #plt.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
-    #plt.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
-    #plt.plot(xc, psi_in, linestyle='--', color='gray', label='Initial')
-    #plt.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
-    #for isub in range(2,nstages-2):
-    #    plt.plot(xc, substages[isub], marker='x', linestyle='-', color=plt.cm.viridis(isub*1.5/nstages), label=f'$k={isub}$')
-    #plt.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    #plt.xlim(0.,1.)
-    #plt.xlabel('x')
-    #plt.ylabel('$\\Psi$')
-    #plt.legend()
-    #plt.savefig('figures/substages.pdf', dpi=300)
-    #plt.close()
-#
-    ## Plot zoomed in substages
-    #plt.figure(figsize=(5,5))
-    #plt.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
-    ##plt.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
-    #plt.plot(xc[65:85], psi_in[65:85], linestyle='--', color='gray', label='Initial')
-    #plt.plot(xc[65:85], psi_Ex[-1][65:85], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
-    #for isub in range(2,nstages-2):
-    #    plt.plot(xc[65:85], substages[isub][65:85], marker='x', linestyle='-', color=plt.cm.viridis(isub*1.5/nstages), label=f'$k={isub}$')
-    #plt.plot(xc[65:85], substages[nstages-1][65:85], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    ##plt.xlim(0.,1.)
-    #plt.xlabel('x')
-    #plt.ylabel('$\\Psi$')
-    #plt.legend()
-    #plt.savefig('figures/substages_leftborder.pdf', dpi=300)
-    #plt.close()
-#
-    ## Plot zoomed in substages
-    #plt.figure(figsize=(5,5))
-    ##plt.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
-    #plt.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
-    #plt.plot(xc[165:185], psi_in[165:185], linestyle='--', color='gray', label='Initial')
-    #plt.plot(xc[165:185], psi_Ex[-1][165:185], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
-    #for isub in range(2,nstages-2):
-    #    plt.plot(xc[165:185], substages[isub][165:185], marker='x', linestyle='-', color=plt.cm.viridis(isub*1.5/nstages), label=f'$k={isub}$')
-    #plt.plot(xc[165:185], substages[nstages-1][165:185], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    ##plt.xlim(0.,1.)
-    #plt.xlabel('x')
-    #plt.ylabel('$\\Psi$')
-    #plt.legend()
-    #plt.savefig('figures/substages_rightborder.pdf', dpi=300)
-    #plt.close()
-
-
-    # Run schemes and plot all in one plot
+    # Run schemes
     nstages = 7    
     substages_spurdiv, substages = np.zeros((nstages,nx)), np.zeros((nstages,nx))
-    psi_AdHImEx_spurdiv = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx, divfree=False, output_substages=True, substages=substages_spurdiv)
+    psi_AdHImEx_spurdiv = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx, unity=False, output_substages=True, substages=substages_spurdiv)
     psi_AdHImEx = sch.AdHImEx(psi_in, nt_AdImEx, dt_AdImEx, uf, dx,output_substages=True, substages=substages)
     psi_Ex = sch.AdHImEx(psi_in, nt_Ex, dt_Ex, uf, dx)
 
     # Calculate l2 norms of final time steps
-    l2_AdHImEx_spurdiv = l2norm(psi_AdHImEx_spurdiv[-1], psi_Ex[-1], dx[0])
-    l2_AdHImEx_divfree = l2norm(psi_AdHImEx[-1], psi_Ex[-1], dx[0])
+    l2_AdHImEx_spurdiv = an.l2norm(psi_AdHImEx_spurdiv[-1], psi_Ex[-1], dx[0])
+    l2_AdHImEx_unity = an.l2norm(psi_AdHImEx[-1], psi_Ex[-1], dx[0])
     with open('substage_l2norms.out', 'w') as f:
-        f.write(f'l2 norm AdHImEx spurdiv: {l2_AdHImEx_spurdiv:.6e}\n')
-        f.write(f'l2 norm AdHImEx divfree: {l2_AdHImEx_divfree:.6e}\n')
+        f.write(f'l2 norm AdHImEx not unity-preserving: {l2_AdHImEx_spurdiv:.6e}\n')
+        f.write(f'l2 norm AdHImEx unity-preserving: {l2_AdHImEx_unity:.6e}\n')
 
     # Plot substages fields
     fig, ax = plt.subplots(1, 2, figsize=(20,6), sharey=True)
     colors = ['blue','olive','mediumaquamarine']
-
     for a in ax:
         a.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
         a.axvline(0.7, color='k', linestyle=':', linewidth=0.7)
@@ -451,7 +337,6 @@ def fig_substages():
     inset1_ax0.tick_params(labelsize=12)
     inset1_ax0.set_xlim(*x1_range)
     inset1_ax0.set_ylim(48, 60)
-    #inset1_ax0.tick_params(labelsize=8)
     mark_inset(ax[0], inset1_ax0, loc1=1, loc2=3, fc="none", ec="0.5")    
 
     inset1_ax1 = ax[1].inset_axes([0.05, 0.55, 0.2, 0.4])
@@ -464,7 +349,6 @@ def fig_substages():
     inset1_ax1.tick_params(labelsize=12)
     inset1_ax1.set_xlim(*x1_range)
     inset1_ax1.set_ylim(48, 60)
-    #inset1_ax1.tick_params(labelsize=8)
     mark_inset(ax[1], inset1_ax1, loc1=1, loc2=3, fc="none", ec="0.5")    
 
     # Second inset in both plots
@@ -479,7 +363,6 @@ def fig_substages():
     inset2_ax0.tick_params(labelsize=12)
     inset2_ax0.set_xlim(*x2_range)
     inset2_ax0.set_ylim(70, 82)
-    #inset2_ax0.tick_params(labelsize=8)
     mark_inset(ax[0], inset2_ax0, loc1=2, loc2=4, fc="none", ec="0.5")
 
     inset2_ax1 = ax[1].inset_axes([0.45, 0.2, 0.2, 0.4])
@@ -492,7 +375,6 @@ def fig_substages():
     inset2_ax1.tick_params(labelsize=12)
     inset2_ax1.set_xlim(*x2_range)
     inset2_ax1.set_ylim(70, 82)
-    #inset2_ax1.tick_params(labelsize=8)
     mark_inset(ax[1], inset2_ax1, loc1=2, loc2=4, fc="none", ec="0.5")
 
     plt.tight_layout()
@@ -503,19 +385,18 @@ def fig_substages():
 
 def fig_nonuniform_advection_swift():
 
-    # Set up file to store l2 norms
-    
-    dt, nx, xmax = 2., 64, 1000. #128, 1000.
+    # Setup
+    dt, nx, xmax = 2., 64, 1000.
     dx = xmax/nx
     nt = 50
     xf = np.linspace(-0.5*xmax, 0.5*xmax, nx, endpoint=False)
     xc = xf + 0.5*dx
-    uf = an.velocity_varying_time_space_swift_2Dnondiv(nt, dt, xf)
-    ufEx = an.velocity_varying_time_space_swift_2Dnondiv(nt*5, dt*0.2, xf)
+    uf = an.velocity_varying_time_space_swift(nt, dt, xf)
+    ufEx = an.velocity_varying_time_space_swift(nt*5, dt*0.2, xf)
     init = an.sine_swift(xc, xmax)
     
     # Plot the final C and theta fields
-    C = dt*uf[-1]/dx # !!! is this at faces?
+    C = dt*uf[-1]/dx
     theta = sch.implicitness(C)
     fig, ax1 = plt.subplots(figsize=(4,3))
     ax2 = ax1.twinx()
@@ -525,6 +406,7 @@ def fig_nonuniform_advection_swift():
     ax1.set_xlabel('x')
     ax1.set_ylabel('$C$')
     ax2.set_ylabel('$\\theta$')
+
     # Create a single legend for both axes
     lns = line_C + line_theta
     labs = [l.get_label() for l in lns]
@@ -536,39 +418,22 @@ def fig_nonuniform_advection_swift():
     # Run schemes
     psi_Ex = sch.AdHImEx(init, nt*5, dt*0.2, ufEx, np.full(nx,dx))
     psi_AdHImEx = sch.AdHImEx(init, nt, dt, uf, np.full(nx,dx))
-    psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCTiter=1)
-    psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCTiter=1, FCT_min=0., FCT_max=10000.)
+    psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCT=True)
+    psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx), FCT=True, ymin=0., ymax=10000.)
     psi_WKS24 = sch.WKS24(init, nt, dt, np.full((nt,nx), uf), np.full(nx,dx))
 
-    #for i in range(len(psi_AdHImEx[-1])):
-    #    print(i, psi_AdHImEx_FCT1[-1][i])
-
     # Calculate l2 norms
+    l2_Ex = an.l2norm(psi_Ex[-1], init, dx)
+    l2_AdHImEx = an.l2norm(psi_AdHImEx[-1], init, dx)
+    l2_AdHImEx_FCT1 = an.l2norm(psi_AdHImEx_FCT1[-1], init, dx)
+    l2_AdHImEx_FCTNN = an.l2norm(psi_AdHImEx_FCTNN[-1], init, dx)
+    l2_WKS24 = an.l2norm(psi_WKS24[-1], init, dx)
+
+    # Output l2 norms to file
     with open('swift_l2norms.out', 'w') as f:
         f.write('l2_Ex, l2_AdHImEx, l2_AdHImEx_FCT1, l2_AdHImEx_FCTNN, l2_WKS24\n')
-        #for it in range(nt):
-            #analytic = an.sine_swift(xc - np.sum(uf[:it+1], axis=0)*dt, xmax)
-        l2_Ex = l2norm(psi_Ex[-1], init, dx)
-        l2_AdHImEx = l2norm(psi_AdHImEx[-1], init, dx)
-        l2_AdHImEx_FCT1 = l2norm(psi_AdHImEx_FCT1[-1], init, dx)
-        l2_AdHImEx_FCTNN = l2norm(psi_AdHImEx_FCTNN[-1], init, dx)
-        l2_WKS24 = l2norm(psi_WKS24[-1], init, dx)
         f.write(f'{l2_Ex:.6e} {l2_AdHImEx:.6e} {l2_AdHImEx_FCT1:.6e} {l2_AdHImEx_FCTNN:.6e} {l2_WKS24:.6e}\n')
 
-    # Plot l2 norms
-    #fig, ax = plt.subplots(figsize=(3,5))
-    #l2norms = [l2_AdHImEx, l2_AdHImEx_FCT1, l2_AdHImEx_FCTNN, l2_WKS24]
-    ##labels = []#'AdHImEx', 'AdHImEx FCT1', 'AdHImEx FCT NN', 'WKS24']
-    #ax.bar(np.arange(len(l2norms)), l2norms, color=['k', 'blue', 'cyan', 'magenta'])
-    #ax.set_yscale('log')
-    #ax.set_ylabel('$l_2$ norm')
-    #ax.yaxis.tick_right()                
-    #ax.yaxis.set_label_position("right")
-    #ax.set_xticks([])
-    #plt.tight_layout()
-    #plt.savefig('figures/swift_l2norms.pdf', dpi=300)
-    #plt.close(fig)
-    
     # Plot results
     fig, ax = plt.subplots(1,2, figsize=(13,5), width_ratios=[4, 1])
     AdImExcolors = ['#543005', '#bf812d', 'orange', 'orangered']
@@ -609,26 +474,25 @@ def main():
     print('Producing figures...')
 
     ######## FIGURE: Amplification factor ########
-    #fig_amplification_factor()
+    fig_amplification_factor()
     
     ######## FIGURE: Uniform advection ########
-    #fig_uniform_advection()
+    fig_uniform_advection()
 
     ######## FIGURE: Order of accuracy ########
-    #fig_order_of_accuracy()
+    fig_order_of_accuracy()
 
     ######## FIGURE: l2 norm over C ########
-    #fig_l2_norm_over_C()
+    fig_l2_norm_over_C()
 
     ######## FIGURE: Nonuniform advection ########
-    #fig_nonuniform_advection()
+    fig_nonuniform_advection()
 
     ######## FIGURE: Substage fields ########
-    #fig_substages()
+    fig_substages()
 
     ######## FIGURE: Nonuniform advection SWIFT testcase ########
     fig_nonuniform_advection_swift()
-
 
     print('...done')
 
