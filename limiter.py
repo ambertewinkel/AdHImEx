@@ -51,16 +51,17 @@ def FCT(flx_HO, dxc, dt, uf, field_previous, use_previous=False, ymin=None, ymax
     
     # Calculate low-order bounded flux and field
     flx_bounded, field_bounded = np.zeros(nx), np.zeros(nx)
+    C_out = (-ufm + np.roll(ufp,-1))*dt/dxc # [i] at i
+    C_in = (ufp - np.roll(ufm,-1))*dt/dxc # [i] at i
     if nondivergent:
-        C_out = (-ufm + np.roll(ufp,-1))*dt/dxc # [i] at i
-        C_in = (ufp - np.roll(ufm,-1))*dt/dxc # [i] at i
         theta = np.maximum(0., 1. - 1./(C_in + C_out)) # [i] at i
-        thetaf = np.maximum(np.roll(theta,1), theta) # [i] at i-1/2
     else:
-        if use_previous:
-            thetaf = np.zeros(nx) # [i] at i-1/2
-        else:
-            thetaf = np.ones(nx) # [i] at i-1/2
+        theta = np.maximum(0., 1. - 0.5/(C_in + C_out)) # [i] at i
+    thetaf = np.maximum(np.roll(theta,1), theta) # [i] at i-1/2
+        #if use_previous:
+        #    thetaf = np.zeros(nx) # [i] at i-1/2
+        #else:
+        #    thetaf = np.ones(nx) # [i] at i-1/2
     ufp_thetaf, ufm_thetaf = thetaf*ufp, thetaf*ufm # [i] at i-1/2
     M = np.zeros((nx, nx))
     for i in range(nx): 
