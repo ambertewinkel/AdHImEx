@@ -155,20 +155,23 @@ def fig_l2_norm_over_C():
     theta = sch.implicitness(C)
 
     # Run schemes
-    l2_AdHImEx, l2_WKS24 = [], []
+    l2_AdHImEx, l2_AdHImEx_gmresm, l2_WKS24 = [], [], []
     for dx_i, nx_i, C_i, theta_i in zip(dx, nx, C, theta):
         xf = np.linspace(0., xmax, nx_i, endpoint=False)
         xc = xf + 0.5*dx_i
         init = an.sine(xc, xmax, u=0., t=0.)
         analytic = an.sine(xc, xmax, u, t=dt*nt)
         psi_AdHImEx = sch.AdHImEx(init, nt, dt, np.full((nt,nx_i), u), np.full(nx_i, dx_i))
+        psi_AdHImEx_gmresm = sch.AdHImEx_gmresm(init, nt, dt, np.full((nt,nx_i), u), np.full(nx_i, dx_i))
         psi_WKS24 = sch.WKS24(init, nt, dt, np.full((nt,nx_i), u), np.full(nx_i, dx_i))
         l2_AdHImEx.append(an.l2norm(psi_AdHImEx[-1], analytic, dx_i))
+        l2_AdHImEx_gmresm.append(an.l2norm(psi_AdHImEx_gmresm[-1], analytic, dx_i))
         l2_WKS24.append(an.l2norm(psi_WKS24[-1], analytic, dx_i))
 
     # Plotting details
     fig, ax = plt.subplots(figsize=(6,4))
     ax.plot(C, l2_AdHImEx, marker='x', label='AdHImEx', color='k')
+    ax.plot(C, l2_AdHImEx_gmresm, marker='o', label='AdHImEx+GMRESm', color='b')
     ax.plot(C, l2_WKS24, marker='x', label='WKS24', color='magenta')
     ax.set_xscale('log')
     ax.set_yscale('log')
@@ -476,25 +479,25 @@ def main():
     print('Producing figures...')
 
     ######## FIGURE: Amplification factor ########
-    fig_amplification_factor()
+    #fig_amplification_factor()
     
     ######## FIGURE: Uniform advection ########
-    fig_uniform_advection()
+    #fig_uniform_advection()
 
     ######## FIGURE: Order of accuracy ########
-    fig_order_of_accuracy()
+    #fig_order_of_accuracy()
 
     ######## FIGURE: l2 norm over C ########
     fig_l2_norm_over_C()
 
     ######## FIGURE: Nonuniform advection ########
-    fig_nonuniform_advection()
+    #fig_nonuniform_advection()
 
     ######## FIGURE: Substage fields ########
-    fig_substages()
+    #fig_substages()
 
     ######## FIGURE: Nonuniform advection SWIFT testcase ########
-    fig_nonuniform_advection_swift()
+    #fig_nonuniform_advection_swift()
 
     print('...done')
 
