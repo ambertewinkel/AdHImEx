@@ -35,7 +35,7 @@ def fig_amplification_factor():
     C2D, theta2D = np.meshgrid(C, theta)
     plt.contourf(C2D, theta2D, A, bounds, cmap=cmap, norm=norm, extend='max')
     plt.plot(C, theta_AdHImEx, 'r--', linewidth=0.7, label=f'AdHImEx $\\theta$')
-    cbar = plt.colorbar(label='$\\max$$_{k \\Delta x}$$|A|$', boundaries = bounds, extend='max')
+    cbar = plt.colorbar(label='$\\max$$_{k \\Delta x}$$||A||$', boundaries = bounds, extend='max')
     cbar.set_ticks([0, 1, 1e1, 1e2, 1e3, 1e4, 1e5])
     cbar.set_ticklabels(['0', '1', '$10^1$', '$10^2$', '$10^3$', '$10^4$', '$10^5$'])
     plt.legend()
@@ -124,10 +124,12 @@ def fig_order_of_accuracy():
 
     # Plotting details
     gridscale = np.logspace(0, np.log10(4), num=3)
+    firstorder = 2.5e-2*gridscale
     secondorder = 7e-5*gridscale**2
     thirdorder = 5e-6*gridscale**3
     fifthorder = 1.9e-10*gridscale**5
     for a in ax:
+        a.plot(dx, firstorder, color='grey', linestyle=':')
         a.plot(dx, secondorder, color='grey', linestyle=':')
         a.plot(dx, thirdorder, color='grey', linestyle=':')
         a.plot(dx, fifthorder, color='grey', linestyle=':')
