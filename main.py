@@ -50,11 +50,12 @@ def fig_amplification_factor():
 def fig_uniform_advection():
 
     # Setup
-    dt, nx, xmax = 0.01, 40, 1.
+    nx, xmax = 40, 1.
     dx = xmax/nx
-    u = [1., 3.125, 6.25, 10.]
-    C = [dt*u_i/dx for u_i in u]
-    nt = [int(100/u_i) for u_i in u]
+    dt = [0.01, 0.03125, 0.0625, 0.1]
+    u = 1.
+    C = [dt_i*u/dx for dt_i in dt]
+    nt = [int(1./dt_i) for dt_i in dt]
     xf = np.linspace(0., xmax, nx, endpoint=False)
     xc = xf + 0.5*dx
     init = an.combi(xc, xmax, u=0., t=0.)
@@ -64,15 +65,16 @@ def fig_uniform_advection():
     fig, ax = plt.subplots(2, 2, figsize=(20,12))
     axrow = 0
     axcol = 0
-    for C_i, u_i, nt_i, theta_i in zip(C, u, nt, theta):
-        psi_AdHImEx = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx))
-        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCT=True, nondivergent=True)
-        psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
-        psi_WKS24 = sch.WKS24(init, nt_i, dt, np.full((nt_i,nx), u_i), np.full(nx,dx))
+    for C_i, dt_i, nt_i, theta_i in zip(C, dt, nt, theta):
+        #print(C_i, dt_i, nt_i, theta_i)
+        psi_AdHImEx = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
+        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
+        psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
+        psi_WKS24 = sch.WKS24(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
         ax[axrow, axcol].plot(xc, init, color='gray', linestyle='--', label='Initial')
         ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdHImEx', marker='x')
-        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdHImEx FCT')
-        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdHImEx FCT NN', marker='x')
+        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdHImEx AdImEx FCT')
+        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdHImEx NN FCT', marker='x')
         ax[axrow, axcol].plot(xc, psi_WKS24[-1], color='magenta', linestyle='-', label='WKS24')
         ax[axrow, axcol].set_title(f'$C={C_i:.2f}$, $\\theta={theta_i:.2f}$', size=20)
         ax[axrow, axcol].text(0.04, 0.9, string.ascii_lowercase[C.index(C_i)], transform=ax[axrow, axcol].transAxes, size=20, weight='bold')
@@ -98,36 +100,48 @@ def fig_order_of_accuracy():
 
     # Setup
     xmax = 1.0
+    Cfac = [1.e2, 20., 8., 4., 1.]
     nx = np.array([80, 40, 20], dtype=int)
     dx = xmax/nx
-    dt = np.array([0.005, 0.01, 0.02], dtype=float)
+    #dt = np.array([0.005, 0.01, 0.02], dtype=float)
+    dt = np.array([0.125, 0.25, 0.5], dtype=float)
     nt = np.array([4, 2, 1])
-    u = [0.1, 1., 3.125, 6.25, 10.]
-    C = [dt[0]*u_i/dx[0] for u_i in u]
+    u = 1. #[0.1, 1., 3.125, 6.25, 10.]
+    C = [dt[0]*u/dx[0]/Cfac_i for Cfac_i in Cfac]
     theta = [sch.implicitness(C_i) for C_i in C]
 
     # Run schemes and plot
     fig, ax = plt.subplots(1, 2, figsize=(8,4), sharey=True)
     colors = ['black', '#810f7c','#8856a7','#8c96c6','#b3cde3']
-    for C_i, theta_i, colors_i, u_i in zip(C, theta, colors, u):
+    for C_i, Cfac_i, theta_i, colors_i in zip(C, Cfac, theta, colors):
         l2_WKS24, l2_AdHImEx = [], []
+        #print(C_i, Cfac_i, theta_i, dt, dx, nt, nx)
         for dt_i, dx_i, nt_i, nx_i in zip(dt, dx, nt, nx):
+            nt_temp = int(nt_i*Cfac_i)
+            dt_temp = dt_i/Cfac_i
+            #print(nt_temp, dt_temp)
             xc = np.linspace(0., xmax, nx_i, endpoint=False)
             init = an.sine(xc, xmax, u=0., t=0.)
-            analytic = an.sine(xc, xmax, u=u_i, t=dt_i*nt_i)
-            psi_WKS24 = sch.WKS24(init, nt_i, dt_i, np.full((nt_i,nx_i), u_i), np.full(nx_i, dx_i))
-            psi_AdHImEx = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx_i), u_i), np.full(nx_i, dx_i))
+            analytic = an.sine(xc, xmax, u=u, t=dt_i*nt_i)
+            psi_WKS24 = sch.WKS24(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
+            psi_AdHImEx = sch.AdHImEx(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
             l2_WKS24.append(an.l2norm(psi_WKS24[-1], analytic, dx_i))
             l2_AdHImEx.append(an.l2norm(psi_AdHImEx[-1], analytic, dx_i))
         ax[0].plot(dx, l2_WKS24, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
         ax[1].plot(dx, l2_AdHImEx, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
 
+    #print()
     # Plotting details
     gridscale = np.logspace(0, np.log10(4), num=3)
-    firstorder = 2.5e-2*gridscale
-    secondorder = 7e-5*gridscale**2
-    thirdorder = 5e-6*gridscale**3
-    fifthorder = 1.9e-10*gridscale**5
+    #firstorder = 2.5e-2*gridscale
+    #secondorder = 7e-5*gridscale**2
+    #thirdorder = 5e-6*gridscale**3
+    #fifthorder = 1.9e-10*gridscale**5    
+    #firstorder = 5e-1*gridscale
+    firstorder = 2e-2*gridscale
+    secondorder = 1e-3*gridscale**2
+    thirdorder = 3e-5*gridscale**3 #3e-6*gridscale**3
+    fifthorder = 7e-8*gridscale**5
     for a in ax:
         a.plot(dx, firstorder, color='grey', linestyle=':')
         a.plot(dx, secondorder, color='grey', linestyle=':')
@@ -444,8 +458,8 @@ def fig_nonuniform_advection_swift():
     for it in [10, 20, 30, 40, 50]:
         if it == 50:
             ax[0].plot(xc, psi_AdHImEx[it], color='k', linestyle='-', label=f'AdHImEx $n_t = {it}$', marker='+')
-            ax[0].plot(xc, psi_AdHImEx_FCT1[it], color='blue', linestyle='-', label=f'AdHImEx FCT $n_t = {it}$')
-            ax[0].plot(xc, psi_AdHImEx_FCTNN[it], color='cyan', linestyle='-', label=f'AdHImEx FCT NN $n_t = {it}$')
+            ax[0].plot(xc, psi_AdHImEx_FCT1[it], color='blue', linestyle='-', label=f'AdHImEx AdImEx FCT $n_t = {it}$')
+            ax[0].plot(xc, psi_AdHImEx_FCTNN[it], color='cyan', linestyle='-', label=f'AdHImEx NN FCT $n_t = {it}$')
             ax[0].plot(xc, psi_WKS24[it], color='magenta', linestyle='-', label=f'WKS24 $n_t = {it}$')
         else: 
             ax[0].plot(xc, psi_AdHImEx[it], color=AdImExcolors[(it-1)//10], linestyle=':', label=f'AdHImEx $n_t = {it}$', linewidth=0.9)
@@ -476,25 +490,25 @@ def main():
     print('Producing figures...')
 
     ######## FIGURE: Amplification factor ########
-    fig_amplification_factor()
+    #fig_amplification_factor()
     
     ######## FIGURE: Uniform advection ########
-    fig_uniform_advection()
+    #fig_uniform_advection()
 
     ######## FIGURE: Order of accuracy ########
     fig_order_of_accuracy()
 
     ######## FIGURE: l2 norm over C ########
-    fig_l2_norm_over_C()
+    #fig_l2_norm_over_C()
 
     ######## FIGURE: Nonuniform advection ########
-    fig_nonuniform_advection()
+    #fig_nonuniform_advection()
 
     ######## FIGURE: Substage fields ########
-    fig_substages()
+    #fig_substages()
 
     ######## FIGURE: Nonuniform advection SWIFT testcase ########
-    fig_nonuniform_advection_swift()
+    #fig_nonuniform_advection_swift()
 
     print('...done')
 
