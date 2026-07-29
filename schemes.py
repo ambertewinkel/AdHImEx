@@ -10,9 +10,10 @@ import limiter as lim
 ################################
 
 
-def space_AdHImEx(field):
+def space_AdHImEx(field): #temporary third
     """Returns the flux for the fifth-order spatial discretisation at [i] using [i+2], [i+1], [i], [i-1], [i-2], [i-3] for field. Output defined at i-1/2."""
-    return -1./20*np.roll(field,-1) + 9./20.*field + 47./60.*np.roll(field,1) - 13./60.*np.roll(field,2) + 1./30.*np.roll(field,3)
+    #return -1./20*np.roll(field,-1) + 9./20.*field + 47./60.*np.roll(field,1) - 13./60.*np.roll(field,2) + 1./30.*np.roll(field,3)
+    return 1./3.*field + 5./6.*np.roll(field,1) - 1./6.*np.roll(field,2)
 
 
 def matrix_AdHImEx(nx, dt, dxc, uf, alpha):
@@ -23,14 +24,20 @@ def matrix_AdHImEx(nx, dt, dxc, uf, alpha):
     uf : velocity at faces ([i] at i-1/2)
     alpha : Runge-Kutta coefficient
     """
-    M = np.zeros((nx, nx))
+    M = np.zeros((nx, nx)) # temporary third
+    #for i in range(nx):
+    #    M[i,(i-3)] = -1./30.*dt*alpha*uf[i]/dxc[i]
+    #    M[i,(i-2)] = dt*alpha*(1./30.*np.roll(uf,-1)[i] + 13./60.*uf[i])/dxc[i]
+    #    M[i,i-1] = dt*alpha*(-13./60.*np.roll(uf,-1)[i] - 47./60.*uf[i])/dxc[i]
+    #    M[i,i] = 1. + dt*alpha*(47./60.*np.roll(uf,-1)[i] - 9./20.*uf[i])/dxc[i]
+    #    M[i,(i+1)%nx] = dt*alpha*(9./20.*np.roll(uf,-1)[i] + 1./20.*uf[i])/dxc[i]
+    #    M[i,(i+2)%nx] = -1./20.*dt*alpha*np.roll(uf,-1)[i]/dxc[i]
+    #return M 
     for i in range(nx):
-        M[i,(i-3)] = -1./30.*dt*alpha*uf[i]/dxc[i]
-        M[i,(i-2)] = dt*alpha*(1./30.*np.roll(uf,-1)[i] + 13./60.*uf[i])/dxc[i]
-        M[i,i-1] = dt*alpha*(-13./60.*np.roll(uf,-1)[i] - 47./60.*uf[i])/dxc[i]
-        M[i,i] = 1. + dt*alpha*(47./60.*np.roll(uf,-1)[i] - 9./20.*uf[i])/dxc[i]
-        M[i,(i+1)%nx] = dt*alpha*(9./20.*np.roll(uf,-1)[i] + 1./20.*uf[i])/dxc[i]
-        M[i,(i+2)%nx] = -1./20.*dt*alpha*np.roll(uf,-1)[i]/dxc[i]
+        M[i,(i-2)] = dt*alpha*1./6.*uf[i]/dxc[i]
+        M[i,i-1] = dt*alpha*(-1./6.*np.roll(uf,-1)[i] - 5./6.*uf[i])/dxc[i]
+        M[i,i] = 1. + dt*alpha*(5./6.*np.roll(uf,-1)[i] - 1./3.*uf[i])/dxc[i]
+        M[i,(i+1)%nx] = dt*alpha*1./3.*np.roll(uf,-1)[i]/dxc[i]
     return M
 
 
