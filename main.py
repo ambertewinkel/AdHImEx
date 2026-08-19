@@ -151,7 +151,7 @@ def fig_order_of_accuracy():
         a.set_xscale('log')
         a.set_xlabel('$\\Delta x$')
     ax[0].legend(loc='lower right')
-    ax[0].set_ylabel('$l_2$ norm')
+    ax[0].set_ylabel(r'$\ell_2$ norm')
     ax[0].set_title('WKS24')
     ax[1].set_title('AdHImEx')
     fig.savefig('figures/order_of_accuracy.pdf', dpi=300)
@@ -187,7 +187,7 @@ def fig_l2_norm_over_C():
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('$C$')
-    ax.set_ylabel('$l_2$ norm')
+    ax.set_ylabel(r'$\ell_2$ norm')
     ax.legend()
     plt.tight_layout()
     fig.savefig('figures/l2_norm_over_C.pdf', dpi=300)
@@ -322,7 +322,7 @@ def fig_substages():
         f.write(f'l2 norm AdHImEx unity-preserving: {l2_AdHImEx_unity:.6e}\n')
 
     # Plot substages fields
-    fig, ax = plt.subplots(1, 2, figsize=(20,6), sharey=True)
+    fig, ax = plt.subplots(1, 2, figsize=(20,6.5), sharey=True)
     colors = ['blue','olive','mediumaquamarine']
     for a in ax:
         a.axvline(0.3, color='k', linestyle=':', linewidth=0.7)
@@ -330,8 +330,8 @@ def fig_substages():
         a.plot(xc, psi_in, linestyle='--', color='gray', label='Initial')
         a.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
     for isub in range(2,nstages-2):
-        ax[0].plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
-        ax[1].plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+        ax[0].plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
+        ax[1].plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     ax[0].plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     ax[1].plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     for a in ax:
@@ -340,6 +340,8 @@ def fig_substages():
         a.set_xlabel('x', size=15)
     ax[0].set_ylabel('$\\Psi$', size=15)
     ax[0].legend(fontsize=15)
+    ax[0].set_title('Without constancy preservation', size=15)
+    ax[1].set_title('With constancy preservation', size=15)
 
     # First inset in both plots
     x1_range = (0.28, 0.33)
@@ -348,7 +350,7 @@ def fig_substages():
     inset1_ax0.plot(xc, psi_in, linestyle='--', color='gray')
     inset1_ax0.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
     for isub in range(2,nstages-2):
-        inset1_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+        inset1_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset1_ax0.plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     inset1_ax0.tick_params(labelsize=12)
     inset1_ax0.set_xlim(*x1_range)
@@ -360,7 +362,7 @@ def fig_substages():
     inset1_ax1.plot(xc, psi_in, linestyle='--', color='gray')
     inset1_ax1.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
     for isub in range(2,nstages-2):
-        inset1_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+        inset1_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset1_ax1.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     inset1_ax1.tick_params(labelsize=12)
     inset1_ax1.set_xlim(*x1_range)
@@ -374,7 +376,7 @@ def fig_substages():
     inset2_ax0.plot(xc, psi_in, linestyle='--', color='gray')
     inset2_ax0.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
     for isub in range(2,nstages-2):
-        inset2_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+        inset2_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset2_ax0.plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     inset2_ax0.tick_params(labelsize=12)
     inset2_ax0.set_xlim(*x2_range)
@@ -386,7 +388,7 @@ def fig_substages():
     inset2_ax1.plot(xc, psi_in, linestyle='--', color='gray')
     inset2_ax1.plot(xc, psi_Ex[-1], marker='+', linestyle='-', linewidth=0.5, color='silver', label='Ex')
     for isub in range(2,nstages-2):
-        inset2_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$k={isub}$')
+        inset2_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset2_ax1.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     inset2_ax1.tick_params(labelsize=12)
     inset2_ax1.set_xlim(*x2_range)
@@ -473,7 +475,7 @@ def fig_nonuniform_advection_swift():
     ax[1].bar(np.arange(len(l2norms)), l2norms, color=['green', 'k', 'blue', 'cyan', 'magenta'])
     ax[1].tick_params(size=15)
     ax[1].set_yscale('log')
-    ax[1].set_ylabel('$l_2$ norm', size=15)
+    ax[1].set_ylabel(r'$\ell_2$ norm', size=15)
     ax[1].yaxis.tick_right()               
     ax[1].yaxis.set_label_position("right")
     ax[1].set_xticks([])
@@ -496,7 +498,7 @@ def main():
     #fig_uniform_advection()
 
     ######## FIGURE: Order of accuracy ########
-    fig_order_of_accuracy()
+    #fig_order_of_accuracy()
 
     ######## FIGURE: l2 norm over C ########
     #fig_l2_norm_over_C()
@@ -505,7 +507,7 @@ def main():
     #fig_nonuniform_advection()
 
     ######## FIGURE: Substage fields ########
-    #fig_substages()
+    fig_substages()
 
     ######## FIGURE: Nonuniform advection SWIFT testcase ########
     #fig_nonuniform_advection_swift()
