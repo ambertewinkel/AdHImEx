@@ -25,8 +25,8 @@ def butcher_AdHImEx_symbolic():
 
 def space_AdHImEx_symbolic(kdx):
     """This function returns the symbolic amplification for the fifth-order spatial discretisation, without the division by dx (this is included in C outside of this function)."""
-    #return -1/20*np.exp(2j*kdx) + 0.5*np.exp(1j*kdx) + 1/3 - np.exp(-1j*kdx) + 0.25*np.exp(-2j*kdx) - 1/30*np.exp(-3j*kdx)
-    return 1./3.*np.exp(1j*kdx) + 0.5 - np.exp(-1j*kdx) + 1./6.*np.exp(-2j*kdx)
+    return -1/20*np.exp(2j*kdx) + 0.5*np.exp(1j*kdx) + 1/3 - np.exp(-1j*kdx) + 0.25*np.exp(-2j*kdx) - 1/30*np.exp(-3j*kdx)
+    #return 1./3.*np.exp(1j*kdx) + 0.5 - np.exp(-1j*kdx) + 1./6.*np.exp(-2j*kdx) # temporary third order
 
 def amplificationfactor_symbolic(butcher):
     """This function calculates the symbolic amplification factor for a given Butcher tableau function."""
