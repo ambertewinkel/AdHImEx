@@ -34,7 +34,7 @@ def fig_amplification_factor():
     fig = plt.figure(figsize=(4,3))
     C2D, theta2D = np.meshgrid(C, theta)
     plt.contourf(C2D, theta2D, A, bounds, cmap=cmap, norm=norm, extend='max')
-    plt.plot(C, theta_AdHImEx, 'r--', linewidth=0.7, label=f'AdHImEx $\\theta$')
+    plt.plot(C, theta_AdHImEx, 'r--', linewidth=1., label=f'AdHImEx $\\theta$')
     cbar = plt.colorbar(label='$\\max$$_{k \\Delta x}$$||A||$', boundaries = bounds, extend='max')
     cbar.set_ticks([0, 1, 1e1, 1e2, 1e3, 1e4, 1e5])
     cbar.set_ticklabels(['0', '1', '$10^1$', '$10^2$', '$10^3$', '$10^4$', '$10^5$'])
@@ -67,12 +67,12 @@ def fig_uniform_advection():
     axcol = 0
     for C_i, dt_i, nt_i, theta_i in zip(C, dt, nt, theta):
         psi_AdHImEx = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
-        psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
+        psi_AdHImEx_FCT = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
         psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
         psi_WKS24 = sch.WKS24(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
         ax[axrow, axcol].plot(xc, init, color='gray', linestyle='--', label='Initial')
         ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdHImEx', marker='x')
-        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdHImEx AdImEx FCT')
+        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT[-1], color='blue', linestyle='-', label='AdHImEx AdImEx FCT')
         ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdHImEx NN FCT', marker='x')
         ax[axrow, axcol].plot(xc, psi_WKS24[-1], color='magenta', linestyle='-', label='WKS24')
         ax[axrow, axcol].set_title(f'$C={C_i:.2f}$, $\\theta={theta_i:.2f}$', size=20)
@@ -193,13 +193,13 @@ def fig_substages():
     ax[0].plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     ax[1].plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
     for a in ax:
-        a.tick_params(labelsize=15)
+        a.tick_params(labelsize=16)
         a.set_xlim(0.,1.)
-        a.set_xlabel('x', size=15)
-    ax[0].set_ylabel('$\\Psi$', size=15)
-    ax[0].legend(fontsize=15)
-    ax[0].set_title('Without constancy preservation', size=15)
-    ax[1].set_title('With constancy preservation', size=15)
+        a.set_xlabel('x', size=20)
+    ax[0].set_ylabel('$\\Psi$', size=20)
+    ax[0].legend(fontsize=18)
+    ax[0].set_title('Without constancy preservation', size=22)
+    ax[1].set_title('With constancy preservation', size=22)
 
     # First inset in both plots
     x1_range = (0.28, 0.33)
@@ -210,7 +210,7 @@ def fig_substages():
     for isub in range(2,nstages-2):
         inset1_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset1_ax0.plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    inset1_ax0.tick_params(labelsize=12)
+    inset1_ax0.tick_params(labelsize=16)
     inset1_ax0.set_xlim(*x1_range)
     inset1_ax0.set_ylim(48, 60)
     mark_inset(ax[0], inset1_ax0, loc1=1, loc2=3, fc="none", ec="0.5")    
@@ -222,7 +222,7 @@ def fig_substages():
     for isub in range(2,nstages-2):
         inset1_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset1_ax1.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    inset1_ax1.tick_params(labelsize=12)
+    inset1_ax1.tick_params(labelsize=16)
     inset1_ax1.set_xlim(*x1_range)
     inset1_ax1.set_ylim(48, 60)
     mark_inset(ax[1], inset1_ax1, loc1=1, loc2=3, fc="none", ec="0.5")    
@@ -236,7 +236,7 @@ def fig_substages():
     for isub in range(2,nstages-2):
         inset2_ax0.plot(xc, substages_spurdiv[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset2_ax0.plot(xc, substages_spurdiv[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    inset2_ax0.tick_params(labelsize=12)
+    inset2_ax0.tick_params(labelsize=16)
     inset2_ax0.set_xlim(*x2_range)
     inset2_ax0.set_ylim(70, 82)
     mark_inset(ax[0], inset2_ax0, loc1=2, loc2=4, fc="none", ec="0.5")
@@ -248,7 +248,7 @@ def fig_substages():
     for isub in range(2,nstages-2):
         inset2_ax1.plot(xc, substages[isub], marker='x', linestyle='-', color=colors[isub-2], label=f'$s={isub}$')
     inset2_ax1.plot(xc, substages[nstages-1], color='k', marker='', linestyle='-', label=f'$n_t=1$')
-    inset2_ax1.tick_params(labelsize=12)
+    inset2_ax1.tick_params(labelsize=16)
     inset2_ax1.set_xlim(*x2_range)
     inset2_ax1.set_ylim(70, 82)
     mark_inset(ax[1], inset2_ax1, loc1=2, loc2=4, fc="none", ec="0.5")
