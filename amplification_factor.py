@@ -21,12 +21,30 @@ def butcher_AdHImEx_symbolic():
 
     # Combine A and b such that we have one matrix with both of them in
     return A.col_join(b.T).row_join(sy.Matrix(np.zeros(len(b)+1)))
+
+
+def butcher_AdImExRK4CN_symbolic():
+    """This function returns the symbolic Butcher tableau for the AdHImEx method."""
+
+    theta, A_Ex, b_Ex, A_Im, b_Im = sy.symbols('theta A_Ex b_Ex A_Im b_Im', real=True)
+
+    A_Ex = sy.Matrix([[0, 0, 0, 0, 0],[sy.Rational(1,2), 0, 0, 0, 0],[0, sy.Rational(1,2), 0, 0, 0],[0, 0, 1, 0, 0],[sy.Rational(1,6), sy.Rational(1,3), sy.Rational(1,3), sy.Rational(1,6), 0]])
+    b_Ex = sy.Matrix([sy.Rational(1,6), sy.Rational(1,3), sy.Rational(1,3), sy.Rational(1,6), 0])
+
+    A_Im = sy.Matrix([[0, 0, 0, 0, 0],[sy.Rational(1,2), 0, 0, 0, 0],[sy.Rational(1,2), 0, 0, 0, 0],[sy.Rational(1,2), 0, 0, sy.Rational(1,2), 0],[sy.Rational(1,2), 0, 0, sy.Rational(1,2), 0]])
+    b_Im = sy.Matrix([sy.Rational(1,2), 0, 0, sy.Rational(1,2), 0])
+
+    A = theta*A_Im + (1 - theta)*A_Ex
+    b = theta*b_Im + (1 - theta)*b_Ex
+
+    # Combine A and b such that we have one matrix with both of them in
+    return A.col_join(b.T).row_join(sy.Matrix(np.zeros(len(b)+1)))
     
 
 def space_AdHImEx_symbolic(kdx):
     """This function returns the symbolic amplification for the fifth-order spatial discretisation, without the division by dx (this is included in C outside of this function)."""
-    return -1/20*np.exp(2j*kdx) + 0.5*np.exp(1j*kdx) + 1/3 - np.exp(-1j*kdx) + 0.25*np.exp(-2j*kdx) - 1/30*np.exp(-3j*kdx)
-    #return 1./3.*np.exp(1j*kdx) + 0.5 - np.exp(-1j*kdx) + 1./6.*np.exp(-2j*kdx) # temporary third order
+    #return -1/20*np.exp(2j*kdx) + 0.5*np.exp(1j*kdx) + 1/3 - np.exp(-1j*kdx) + 0.25*np.exp(-2j*kdx) - 1/30*np.exp(-3j*kdx)
+    return 1./3.*np.exp(1j*kdx) + 0.5 - np.exp(-1j*kdx) + 1./6.*np.exp(-2j*kdx) # temporary third order    
 
 def amplificationfactor_symbolic(butcher):
     """This function calculates the symbolic amplification factor for a given Butcher tableau function."""
@@ -61,3 +79,18 @@ def calculate_amplification_AdHImEx(C, theta, kdx):
             maxAabs[j, i] = np.abs(A_eqn(C[i], space_AdHImEx_symbolic(kdx), theta[j])).max()
     return maxAabs
 
+
+def calculate_amplification_AdImExRK4CN(C, theta, kdx):
+    """This function calculates the amplification factor for the RK4CN AdImEx scheme for given C, theta and wavenumber k (08-10-2026)."""
+
+    C_sy, theta_sy = sy.symbols('C theta', real=True)
+    SD = sy.symbols('SD')
+    # Get the amplification factor equation with SymPy
+    A_eqn = sy.lambdify([C_sy, SD, theta_sy], amplificationfactor_symbolic(butcher_AdImExRK4CN_symbolic))
+
+    # Calculate max values of amplification factor for given C, theta (max over kdx)
+    maxAabs = np.zeros((len(theta), len(C)), dtype=float)
+    for j in range(len(theta)):
+        for i in range(len(C)):
+            maxAabs[j, i] = np.abs(A_eqn(C[i], space_AdHImEx_symbolic(kdx), theta[j])).max() # still same setup as AdHImEx
+    return maxAabs
