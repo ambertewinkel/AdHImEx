@@ -18,9 +18,13 @@ def fig_amplification_factor():
     C = np.logspace(-1, 2, 401, endpoint=True)
     theta = np.linspace(0., 1., 401, endpoint=True)
     #A = af.calculate_amplification_AdHImEx(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
-    A = af.calculate_amplification_AdImExRK4CN(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
-    theta_AdHImEx = sch.implicitness(C)
-    theta_AdImExRK4CN = sch.implicitness_AdImExRK4CN(C)
+    #A = af.calculate_amplification_AdImExRK4CN(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    #A = af.calculate_amplification_AdImExRK4CN_quinticEx_upwindIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    A = af.calculate_amplification_AdImExRK4CN_quinticEx_cubicIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    #theta_AdHImEx = sch.implicitness(C)
+    #theta_AdImExRK4CN = sch.implicitness_AdImExRK4CN(C)
+    #theta_AdImExRK4CN = sch.implicitness_AdImExRK4CN_quinticEx_upwindIm(C)
+    theta_AdImExRK4CN = sch.implicitness_AdImExRK4CN_quinticEx_cubicIm(C)
 
     # Design colorbar
     bounds = np.array([0.,0.5, 1.00000001])
@@ -37,7 +41,9 @@ def fig_amplification_factor():
     C2D, theta2D = np.meshgrid(C, theta)
     plt.contourf(C2D, theta2D, A, bounds, cmap=cmap, norm=norm, extend='max')
     #plt.plot(C, theta_AdHImEx, 'r--', linewidth=0.7, label=f'AdHImEx $\\theta$')
-    plt.plot(C, theta_AdImExRK4CN, 'm--', linewidth=0.7, label=f'AdImEx RK4CN $\\theta$')
+    #plt.plot(C, theta_AdImExRK4CN, 'm--', linewidth=0.7, label=f'AdImEx RK4CN $\\theta$')
+    #plt.plot(C, theta_AdImExRK4CN, 'm--', linewidth=0.7, label=f'AdImEx RK4CN (quintic Ex, upwind Im) $\\theta$')
+    plt.plot(C, theta_AdImExRK4CN, 'm--', linewidth=0.7, label=f'AdImEx RK4CN (quintic Ex, cubic Im) $\\theta$')
     cbar = plt.colorbar(label='$\\max$$_{k \\Delta x}$$||A||$', boundaries = bounds, extend='max')
     cbar.set_ticks([0, 1, 1e1, 1e2, 1e3, 1e4, 1e5])
     cbar.set_ticklabels(['0', '1', '$10^1$', '$10^2$', '$10^3$', '$10^4$', '$10^5$'])
@@ -47,7 +53,9 @@ def fig_amplification_factor():
     plt.ylabel(f'$\\theta$')
     plt.tight_layout()
     #fig.savefig('figures/amplification_factor.pdf', dpi=300)
-    fig.savefig('amplification_factor_AdImExRK4CN.pdf', dpi=300)
+    #fig.savefig('amplification_factor_AdImExRK4CN.pdf', dpi=300)
+    #fig.savefig('amplification_factor_AdImExRK4CN_quinticEx_upwindIm.pdf', dpi=300)
+    fig.savefig('amplification_factor_AdImExRK4CN_quinticEx_cubicIm.pdf', dpi=300)
     plt.close(fig)
 
  
@@ -64,7 +72,9 @@ def fig_uniform_advection():
     xc = xf + 0.5*dx
     init = an.combi(xc, xmax, u=0., t=0.)
     #theta = [sch.implicitness(C_i) for C_i in C]
-    theta = [sch.implicitness_AdImExRK4CN(C_i) for C_i in C]
+    #theta = [sch.implicitness_AdImExRK4CN(C_i) for C_i in C]
+    #theta = [sch.implicitness_AdImExRK4CN_quinticEx_upwindIm(C_i) for C_i in C]
+    theta = [sch.implicitness_AdImExRK4CN_quinticEx_cubicIm(C_i) for C_i in C]
 
     # Run schemes and plot
     fig, ax = plt.subplots(2, 2, figsize=(20,12))
@@ -73,19 +83,31 @@ def fig_uniform_advection():
     for C_i, dt_i, nt_i, theta_i in zip(C, dt, nt, theta):
         #print(C_i, dt_i, nt_i, theta_i)
         #psi_AdHImEx = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
-        psi_AdHImEx = sch.AdImExRK4CN(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
+        #psi_AdHImEx = sch.AdImExRK4CN(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
+        #psi_AdHImEx = sch.AdImExRK4CN_quinticEx_upwindIm(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
+        psi_AdHImEx = sch.AdImExRK4CN_quinticEx_cubicIm(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
         #psi_AdHImEx_FCT1 = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
-        psi_AdHImEx_FCT1 = sch.AdImExRK4CN(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
+        #psi_AdHImEx_FCT1 = sch.AdImExRK4CN(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
+        #psi_AdHImEx_FCT1 = sch.AdImExRK4CN_quinticEx_upwindIm(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
+        psi_AdHImEx_FCT1 = sch.AdImExRK4CN_quinticEx_cubicIm(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, nondivergent=True)
         #psi_AdHImEx_FCTNN = sch.AdHImEx(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
-        psi_AdHImEx_FCTNN = sch.AdImExRK4CN(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
+        #psi_AdHImEx_FCTNN = sch.AdImExRK4CN(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
+        #psi_AdHImEx_FCTNN = sch.AdImExRK4CN_quinticEx_upwindIm(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
+        psi_AdHImEx_FCTNN = sch.AdImExRK4CN_quinticEx_cubicIm(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx), FCT=True, ymin=0., ymax=10000., nondivergent=True)
         psi_WKS24 = sch.WKS24(init, nt_i, dt_i, np.full((nt_i,nx), u), np.full(nx,dx))
         ax[axrow, axcol].plot(xc, init, color='gray', linestyle='--', label='Initial')
         #ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdHImEx', marker='x')
         #ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdHImEx AdImEx FCT')
         #ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdHImEx NN FCT', marker='x')
-        ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdImEx RK4CN', marker='x')
-        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdImEx RK4CN AdImEx FCT')
-        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdImEx RK4CN NN FCT', marker='x')
+        #ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdImEx RK4CN', marker='x')
+        #ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdImEx RK4CN AdImEx FCT')
+        #ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdImEx RK4CN NN FCT', marker='x')
+        #ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdImEx RK4CN (quintic Ex, upwind Im)', marker='x')
+        #ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdImEx RK4CN (quintic Ex, upwind Im) AdImEx FCT')
+        #ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdImEx RK4CN (quintic Ex, upwind Im) NN FCT', marker='x')
+        ax[axrow, axcol].plot(xc, psi_AdHImEx[-1], color='black', linestyle='-', label='AdImEx RK4CN (quintic Ex, cubic Im)', marker='x')
+        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCT1[-1], color='blue', linestyle='-', label='AdImEx RK4CN (quintic Ex, cubic Im) AdImEx FCT')
+        ax[axrow, axcol].plot(xc, psi_AdHImEx_FCTNN[-1], color='cyan', linestyle='-', label='AdImEx RK4CN (quintic Ex, cubic Im) NN FCT', marker='x')
         ax[axrow, axcol].plot(xc, psi_WKS24[-1], color='magenta', linestyle='-', label='WKS24')
         ax[axrow, axcol].set_title(f'$C={C_i:.2f}$, $\\theta={theta_i:.2f}$', size=20)
         ax[axrow, axcol].text(0.04, 0.9, string.ascii_lowercase[C.index(C_i)], transform=ax[axrow, axcol].transAxes, size=20, weight='bold')
@@ -104,7 +126,9 @@ def fig_uniform_advection():
     fig.legend(handles, labels, ncol=5, bbox_to_anchor=(0.5, -0.05), loc='lower center', fontsize=20)
     plt.tight_layout()
     #fig.savefig('figures/uniform_advection.pdf', dpi=300, bbox_inches='tight')
-    fig.savefig('uniform_advection.pdf', dpi=300, bbox_inches='tight')
+    #fig.savefig('uniform_advection_AdImExRK4CN_cubicEx_cubicIm.pdf', dpi=300, bbox_inches='tight')
+    #fig.savefig('uniform_advection_AdImExRK4CN_quinticEx_upwindIm.pdf', dpi=300, bbox_inches='tight')
+    fig.savefig('uniform_advection_AdImExRK4CN_quinticEx_cubicIm.pdf', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
 
@@ -120,7 +144,10 @@ def fig_order_of_accuracy():
     nt = np.array([4, 2, 1])
     u = 1. #[0.1, 1., 3.125, 6.25, 10.]
     C = [dt[0]*u/dx[0]/Cfac_i for Cfac_i in Cfac]
-    theta = [sch.implicitness_AdImExRK4CN(C_i) for C_i in C]
+    #theta = [sch.implicitness(C_i) for C_i in C]
+    #theta = [sch.implicitness_AdImExRK4CN(C_i) for C_i in C]
+    #theta = [sch.implicitness_AdImExRK4CN_quinticEx_upwindIm(C_i) for C_i in C]
+    theta = [sch.implicitness_AdImExRK4CN_quinticEx_cubicIm(C_i) for C_i in C]
 
     # Run schemes and plot
     fig, ax = plt.subplots(1, 2, figsize=(8,4), sharey=True)
@@ -137,7 +164,9 @@ def fig_order_of_accuracy():
             analytic = an.sine(xc, xmax, u=u, t=dt_i*nt_i)
             psi_WKS24 = sch.WKS24(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
             #psi_AdHImEx = sch.AdHImEx(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
-            psi_AdHImEx = sch.AdImExRK4CN(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
+            #psi_AdHImEx = sch.AdImExRK4CN(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
+            #psi_AdHImEx = sch.AdImExRK4CN_quinticEx_upwindIm(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
+            psi_AdHImEx = sch.AdImExRK4CN_quinticEx_cubicIm(init, nt_temp, dt_temp, np.full((nt_temp,nx_i), u), np.full(nx_i, dx_i))
             l2_WKS24.append(an.l2norm(psi_WKS24[-1], analytic, dx_i))
             l2_AdHImEx.append(an.l2norm(psi_AdHImEx[-1], analytic, dx_i))
         ax[0].plot(dx, l2_WKS24, marker='x', label=f'$C={C_i:.2f}$', color=colors_i)
@@ -167,9 +196,13 @@ def fig_order_of_accuracy():
     ax[0].set_ylabel(r'$\ell_2$ norm')
     ax[0].set_title('WKS24')
     #ax[1].set_title('AdHImEx')
-    ax[1].set_title('AdImEx RK4CN')
-    #.savefig('figures/order_of_accuracy.pdf', dpi=300)
-    fig.savefig('order_of_accuracy.pdf', dpi=300)
+    #ax[1].set_title('AdImEx RK4CN (cubic Ex, cubic Im)')
+    #ax[1].set_title('AdImEx RK4CN (quintic Ex, upwind Im)')
+    ax[1].set_title('AdImEx RK4CN (quintic Ex, cubic Im)')
+    #fig.savefig('figures/order_of_accuracy.pdf', dpi=300)
+    #fig.savefig('order_of_accuracy_AdImExRK4CN_cubicEx_cubicIm.pdf', dpi=300)
+    #fig.savefig('order_of_accuracy_AdImExRK4CN_quinticEx_upwindIm.pdf', dpi=300)
+    fig.savefig('order_of_accuracy_AdImExRK4CN_quinticEx_cubicIm.pdf', dpi=300)
     plt.close(fig)
 
 
@@ -507,8 +540,8 @@ def main():
     print('Producing figures...')
 
     ######## FIGURE: Amplification factor ########
-    #fig_amplification_factor()
-    
+    fig_amplification_factor()
+
     ######## FIGURE: Uniform advection ########
     fig_uniform_advection()
 
