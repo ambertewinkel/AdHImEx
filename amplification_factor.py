@@ -158,3 +158,58 @@ def calculate_amplification_AdImExRK4CN_quinticEx_upwindIm(C, theta, kdx):
     """This function calculates the amplification factor for the RK4CN AdImEx scheme with a fifth-order (quintic) spatial discretisation for the explicit part
     and a first-order upwind spatial discretisation for the implicit part, for given C, theta and wavenumber k. Consistent with schemes.AdImExRK4CN_quinticEx_upwindIm."""
     return calculate_amplification_AdImExRK4CN(C, theta, kdx, space_Ex=space_quintic_symbolic, space_Im=space_upwind_symbolic)
+
+
+def butcher_AdImExRK438PR2_symbolic():
+    """This function returns the symbolic Butcher tableau for the AdHImEx method."""
+
+    theta = sy.symbols('theta', real=True)
+
+    # Explicit and implicit tableaux (each already combined with b) from butcherExIm_AdImExRK438PR2_symbolic
+    butcherEx, butcherIm = butcherExIm_AdImExRK438PR2_symbolic()
+
+    return theta*butcherIm + (1 - theta)*butcherEx
+
+
+def butcherExIm_AdImExRK438PR2_symbolic():
+    """This function returns the symbolic explicit and implicit Butcher tableaux for the AdImEx explicit fourth order 3/8 method + PR05 second-order DIRK scheme separately (i.e. not weighted by theta), each combined with b such that we have one matrix with both A and b in. Needed when the explicit and implicit parts use different spatial discretisations."""
+
+    A_Ex = sy.Matrix([[0, 0, 0, 0, 0],[sy.Rational(1,3), 0, 0, 0, 0],[-sy.Rational(1,3), 1, 0, 0, 0],[1, -1, 1, 0, 0],[sy.Rational(1,8), sy.Rational(3,8), sy.Rational(3,8), sy.Rational(1,8), 0]])
+    b_Ex = sy.Matrix([sy.Rational(1,8), sy.Rational(3,8), sy.Rational(3,8), sy.Rational(1,8), 0])
+
+    A_Im = sy.Matrix([[0, 0, 0, 0, 0],[0, sy.Rational(1,3), 0, 0, 0],[0, sy.Rational(1,3), sy.Rational(1,3), 0, 0],[0, sy.Rational(1,2), sy.Rational(1,2), 0, 0],[0, sy.Rational(1,2), sy.Rational(1,2), 0, 0]])
+    b_Im = sy.Matrix([0, sy.Rational(1,2), sy.Rational(1,2), 0, 0])
+
+    # Combine A and b such that we have one matrix with both of them in
+    butcherEx = A_Ex.col_join(b_Ex.T).row_join(sy.Matrix(np.zeros(len(b_Ex)+1)))
+    butcherIm = A_Im.col_join(b_Im.T).row_join(sy.Matrix(np.zeros(len(b_Im)+1)))
+    return butcherEx, butcherIm
+
+
+def calculate_amplification_AdImExRK438PR2(C, theta, kdx, space_Ex=space_cubic_symbolic, space_Im=space_cubic_symbolic):
+    """This function calculates the amplification factor for the RK438PR2 AdImEx scheme for given C, theta and wavenumber k (08-10-2026).
+    space_Ex: function, spatial discretisation for the explicit part of the Butcher tableau (default space_AdHImEx_symbolic)
+    space_Im: function, spatial discretisation for the implicit part of the Butcher tableau (default space_AdHImEx_symbolic)
+    By default uses the same cubic spatial discretisation for both the explicit and implicit parts."""
+
+    C_sy, theta_sy = sy.symbols('C theta', real=True)
+    SDEx, SDIm = sy.symbols('SDEx SDIm')
+    # Get the amplification factor equation with SymPy (separate spatial discretisations for the explicit and implicit parts)
+    A_eqn = sy.lambdify([C_sy, SDEx, SDIm, theta_sy], amplificationfactor_ExIm_symbolic(butcherExIm_AdImExRK438PR2_symbolic))
+
+    # Calculate max values of amplification factor for given C, theta (max over kdx)
+    maxAabs = np.zeros((len(theta), len(C)), dtype=float)
+    for j in range(len(theta)):
+        for i in range(len(C)):
+            maxAabs[j, i] = np.abs(A_eqn(C[i], space_Ex(kdx), space_Im(kdx), theta[j])).max()
+    return maxAabs
+
+
+def calculate_amplification_AdImExRK438PR2_quinticEx_quinticIm(C, theta, kdx):
+    """This function calculates the amplification factor for the RK438PR2 AdImEx scheme with a fifth-order (quintic) spatial discretisation for the explicit and implicit parts, for given C, theta and wavenumber k."""
+    return calculate_amplification_AdImExRK438PR2(C, theta, kdx, space_Ex=space_quintic_symbolic, space_Im=space_quintic_symbolic)
+
+
+def calculate_amplification_AdImExRK438PR2_quinticEx_cubicIm(C, theta, kdx):
+    """This function calculates the amplification factor for the RK438PR2 AdImEx scheme with a fifth-order (quintic) spatial discretisation for the explicit part and a third-order (cubic) spatial discretisation for the implicit part, for given C, theta and wavenumber k."""
+    return calculate_amplification_AdImExRK438PR2(C, theta, kdx, space_Ex=space_quintic_symbolic, space_Im=space_cubic_symbolic)

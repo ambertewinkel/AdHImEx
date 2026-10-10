@@ -122,6 +122,20 @@ def butcherIm_AdImExRK4CN():
     return A, b
 
 
+def butcherEx_AdImExRK438PR2():
+    """Left (explicit) butcher tableau from Ullrich and Jablonowski 2012. See the Weller Lock and Wood (2013) UJ3(1+e,3,2) scheme."""   
+    A = np.array([[0., 0., 0., 0., 0.],[1/3, 0., 0., 0., 0.],[-1/3, 1., 0., 0., 0.],[1., -1., 1., 0., 0.],[1/8, 3/8, 3/8, 1/8, 0.]])
+    b = np.array([[1/8, 3/8, 3/8, 1/8, 0.]])
+    return A, b
+
+
+def butcherIm_AdImExRK438PR2():
+    """Right (implicit) butcher tableau from Ullrich and Jablonowski 2012. See the Weller Lock and Wood (2013) UJ3(1+e,3,2) scheme."""   
+    A = np.array([[0., 0., 0., 0., 0.],[0., 1/3, 0., 0., 0.],[0., 1/3, 1/3, 0., 0.],[0., 0.5, 0.5, 0., 0.],[0., 0.5, 0.5, 0., 0.]])
+    b = np.array([[0., 0.5, 0.5, 0., 0.]])
+    return A, b
+
+
 def ddx(fmh, fph, dxc):
     """This function computes the first derivative of a field f with respect to x with a finite-volume method. 
     dxc : cell-centred width at i
@@ -236,6 +250,26 @@ def implicitness_AdImExRK4CN_quinticEx_cubicIm(C): # currently still a copy of q
     (minimum theta with max|A|<=1) of this combination."""
     #return np.where(C < 1.5, 0., np.minimum(1., np.maximum(0., 1.09 - 1./(1. + 1.55*(C - 1.775))))) # C<1.5 avoids spurious theta=1 for C<1.13 (from results 09-10-2026)
     return np.where(C < 1.2, 0., np.minimum(1., np.maximum(0., 1.27 - 1./(1. + 0.6*(C - 1.62))))) # theta>0 from C=1.266 (small theta unstable for C>1.32); C<1.2 guard is continuous
+
+
+def implicitness_AdImExRK438PR2(C):
+    """This function returns the AdImEx RK438PR2 implicitness parameter theta for a given Courant number C, for the default cubic Ex, cubic Im spatial discretisation.
+    Written as theta = 1 - h(C)/C, because the stability boundary (minimum theta with max|A|<=1, from amplification_factor.calculate_amplification_AdImExRK438PR2)
+    satisfies C*(1 - theta_min) -> 1.745 at C=1.745 (theta_min=0) and -> 0.755 for large C. h decreases smoothly from 1.73 at C=1.73 (theta=0, continuous) to 0.74,
+    so theta -> 1 - 0.74/C for large C. Lies at most 0.03 above the stability boundary (near C=2), < 0.003 above for C>10 and < 0.0003 above for C>100."""
+    #return 1. - (0.74 + (1.73 - 0.74)/(1. + 0.24*np.maximum(0., C - 1.73))**1.3)/np.maximum(C, 1.73) # theta=0 for C<=1.73 (theta=0 unstable for C>1.745) # great fit but not really the structure that I want
+    return np.where(C < 1.5, 0., np.minimum(1., np.maximum(0., 1.041 - 1./(1. + 0.795*(C - 1.794))))) # less room at low C but more room at large C than the below.
+    #return np.where(C < 1.5, 0., np.minimum(1., np.maximum(0., 1.024 - 1./(1. + 0.877*(C - 1.767)))))
+
+
+def implicitness_AdImExRK438PR2_quinticEx_quinticIm(C):
+    """This function returns the AdImEx RK438PR2 implicitness parameter theta for a given Courant number C, for the quintic Ex, quintic Im spatial discretisation."""
+    return np.where(C < 1.5, 0., np.minimum(1., np.maximum(0., 1.015 - 1./(1. + 1.2*(C - 1.7)))))
+
+
+def implicitness_AdImExRK438PR2_quinticEx_cubicIm(C):
+    """This function returns the AdImEx RK438PR2 implicitness parameter theta for a given Courant number C, for the quintic Ex, cubic Im spatial discretisation."""
+    return np.where(C < 1.5, 0., np.minimum(1., np.maximum(0., 1.015 - 1./(1. + 1.2*(C - 1.7)))))
 
 
 def AdImExRK4CN(init, nt, dt, uf, dxc, unity=True, FCT=False, output_substages=False, substages=np.array([]), ymin=None, ymax=None, nondivergent=False, space_Ex=space_cubic, space_Im=space_cubic, matrix_Im=matrix_cubic, implicitness_function=implicitness_AdImExRK4CN):
@@ -420,3 +454,105 @@ def WKS24(init, nt, dt, uf, dxc, kmax=2, set_alpha='max'):
             field[it+1] = np.linalg.solve(M, rhs)    
 
     return field
+
+
+def AdImExRK438PR2(init, nt, dt, uf, dxc, unity=True, FCT=False, output_substages=False, substages=np.array([]), ymin=None, ymax=None, nondivergent=False, space_Ex=space_cubic, space_Im=space_cubic, matrix_Im=matrix_cubic, implicitness_function=implicitness_AdImExRK438PR2):
+    """Implements the AdImEx RK438PR2 scheme. Returns the field at all time steps, including the initial condition: field[nt+1, nx]. Assumes periodic boundaries, uniform grid and nonnegative velocity at faces.
+    init : 1D array of floats, initial condition at t=0
+    nt   : int, number of time steps
+    dt   : float, time step length
+    uf   : 2D array of floats, velocity field at cell faces for all time
+    dxc  : 1D array of floats, cell widths
+    unity: bool, whether to use the unity preservation modification (default True)
+    FCT  : bool, whether to use FCT (default False)
+    output_substages: bool, whether to output substages (default False)
+    substages: 2D array of floats, to store the substages (default empty array)
+    FCT_min: float, minimum value for FCT limiter (None for no limit)
+    FCT_max: float, maximum value for FCT limiter (None for no limit)
+    nondivergent: bool, whether to use the nondivergent FCT algorithm (default False)
+    space_Ex: function, spatial flux discretisation for the explicit part of the Butcher tableau (default space_cubic)
+    space_Im: function, spatial flux discretisation for the implicit part of the Butcher tableau (default space_cubic)
+    matrix_Im: function, implicit matrix consistent with space_Im (default matrix_cubic)
+    implicitness_function: function, theta as a function of the Courant number (default implicitness_AdImExRK438PR2)
+
+    By default assumes same cubic spatial discretisation and matrix for both the explicit and implicit parts, with theta from implicitness_AdImExRK438PR2.
+    """
+    # General setup
+    nx = len(init)
+    field = np.zeros((nt+1, nx))
+    field[0] = init.copy()
+    xf = np.zeros(nx) 
+    for i in range(nx-1):
+        xf[i+1] = xf[i] + dxc[i]
+
+    # Set up Butcher tableau
+    AIm, bIm = butcherIm_AdImExRK438PR2()
+    AEx, bEx = butcherEx_AdImExRK438PR2()
+    nstages = np.shape(bIm)[1]
+    AEx = np.concatenate((AEx,bEx), axis=0) # Resetting A to include b
+    AIm = np.concatenate((AIm,bIm), axis=0)
+    AEx = np.concatenate((AEx, np.zeros((nstages+1,1))), axis=1)
+    AIm = np.concatenate((AIm, np.zeros((nstages+1,1))), axis=1)
+    flxEx_k, flxIm_k, fEx_f, fIm_f, fEx_c, fIm_c, flx_contribution_from_stage_k = np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx)), np.zeros((nstages+1, nx))
+
+    # Calculating the implicitness at cell centres and faces for all time steps
+    thetaf, cf, thetac, cc = np.zeros((nt,nx)), np.zeros((nt,nx)), np.zeros((nt,nx)), np.zeros((nt,nx))
+    for it in range(nt):
+        cf[it] = uf[it]*dt/dxc # [i] at i-1/2
+        thetaf[it] = implicitness_function(cf[it]) # [i] at i-1/2
+        cc[it] = 0.5*(np.abs(uf[it]) - uf[it] + np.abs(np.roll(uf[it],-1)) + np.roll(uf[it],-1))*dt/dxc # [i] at i, Courant defined at cell centers based on the *outward* pointing velocities
+        thetac[it] = implicitness_function(cc[it])
+
+    # Time-stepping loop
+    for it in range(nt):
+        field_k = field[it].copy()
+        flx_HO = np.zeros(nx)
+        
+        # Loop over the Runge-Kutta stages
+        for ik in range(nstages+1):
+            # Calculate the field at stage k (field_k)
+            M = matrix_Im(nx, dt, dxc, thetaf[it]*uf[it], AIm[ik,ik]) # [i] at i # consistent with space_Im
+            #if unity and (ik == 1 or ik == 2):
+            #    rhs_k = field[it] + dt*np.dot(AEx[ik,:ik], fEx_c[:ik,:]) + dt*np.dot(AIm[ik,:ik], fIm_c[:ik,:]) # [i] at i
+            #else:
+            rhs_k = field[it] + dt*np.dot(AEx[ik,:ik], fEx_f[:ik,:]) + dt*np.dot(AIm[ik,:ik], fIm_f[:ik,:]) # [i] at i
+            field_k = np.linalg.solve(M, rhs_k) # [i] at i
+
+            # Store the substage field if required
+            if output_substages: 
+                substages[ik+1] = field_k
+
+            # Calculate the explicit and implicit fluxes based on the field at stage k (identical if space_Ex == space_Im)
+            flxEx_k[ik,:] = uf[it]*space_Ex(field_k) # [i] at i-1/2
+            flxIm_k[ik,:] = uf[it]*space_Im(field_k) # [i] at i-1/2
+            fEx_f[ik,:] = -ddx((1 - thetaf[it])*flxEx_k[ik,:], np.roll((1 - thetaf[it])*flxEx_k[ik,:],-1), dxc)
+            fIm_f[ik,:] = -ddx(thetaf[it]*flxIm_k[ik,:], np.roll(thetaf[it]*flxIm_k[ik,:],-1), dxc)
+            fEx_c[ik,:] = -(1 - thetac[it])*ddx(flxEx_k[ik,:], np.roll(flxEx_k[ik,:],-1), dxc)
+            fIm_c[ik,:] = -thetac[it]*ddx(flxIm_k[ik,:], np.roll(flxIm_k[ik,:],-1), dxc)
+
+            # Accumulate the flux contributions from the stages (needed for FCT)
+            flx_contribution_from_stage_k[ik,:] = AEx[-1,ik]*(1 - thetaf[it])*flxEx_k[ik,:] + AIm[-1,ik]*thetaf[it]*flxIm_k[ik,:]
+            flx_HO += flx_contribution_from_stage_k[ik,:] 
+
+        # Implement FCT if required
+        if FCT:
+            use_previous = np.all(cc[it] <= 1.) 
+            field[it+1] = lim.FCT(flx_HO, dxc, dt, uf[it], field[it], use_previous=use_previous, ymin=ymin, ymax=ymax, nondivergent=nondivergent)         
+        else:     
+            field[it+1] = field_k.copy()
+
+    return field
+
+
+def AdImExRK438PR2_quinticEx_quinticIm(init, nt, dt, uf, dxc, unity=True, FCT=False, output_substages=False, substages=np.array([]), ymin=None, ymax=None, nondivergent=False):
+    """Implements the AdImEx RK438PR2 scheme with a fifth-order (quintic) spatial discretisation for the explicit part of the Butcher tableau
+    and a fifth-order (quintic) spatial discretisation for the implicit part (and the implicit matrix). Arguments and output as in AdImExRK438PR2."""
+    return AdImExRK438PR2(init, nt, dt, uf, dxc, unity=unity, FCT=FCT, output_substages=output_substages, substages=substages, ymin=ymin, ymax=ymax, nondivergent=nondivergent,
+                          space_Ex=space_quintic, space_Im=space_quintic, matrix_Im=matrix_quintic, implicitness_function=implicitness_AdImExRK438PR2_quinticEx_quinticIm)
+
+
+def AdImExRK438PR2_quinticEx_cubicIm(init, nt, dt, uf, dxc, unity=True, FCT=False, output_substages=False, substages=np.array([]), ymin=None, ymax=None, nondivergent=False):
+    """Implements the AdImEx RK438PR2 scheme with a fifth-order (quintic) spatial discretisation for the explicit part of the Butcher tableau
+    and a third-order (cubic) spatial discretisation for the implicit part (and the implicit matrix). Arguments and output as in AdImExRK438PR2."""
+    return AdImExRK438PR2(init, nt, dt, uf, dxc, unity=unity, FCT=FCT, output_substages=output_substages, substages=substages, ymin=ymin, ymax=ymax, nondivergent=nondivergent,
+                          space_Ex=space_quintic, space_Im=space_cubic, matrix_Im=matrix_cubic, implicitness_function=implicitness_AdImExRK438PR2_quinticEx_cubicIm)
