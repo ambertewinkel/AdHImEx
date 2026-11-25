@@ -18,19 +18,25 @@ def fig_amplification_factor():
     C = np.logspace(-1, 2, 401, endpoint=True)
     theta = np.linspace(0., 1., 401, endpoint=True)
     #A = af.calculate_amplification_AdHImEx(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    #A = af.calculate_amplification_AdHImEx_ExIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True)) # any Ex/Im combination
+    #A = af.calculate_amplification_AdHImEx_quinticEx_quinticIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    #A = af.calculate_amplification_AdHImEx_quinticEx_cubicIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    #A = af.calculate_amplification_AdHImEx_quinticEx_upwindIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    #A = af.calculate_amplification_AdHImEx_cubicEx_cubicIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    A = af.calculate_amplification_AdHImEx_cubicEx_upwindIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
     #A = af.calculate_amplification_AdImExRK4CN(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
     #A = af.calculate_amplification_AdImExRK4CN_quinticEx_upwindIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
     #A = af.calculate_amplification_AdImExRK4CN_quinticEx_cubicIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
     #A = af.calculate_amplification_AdImExRK438PR2(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
     #A = af.calculate_amplification_AdImExRK438PR2_quinticEx_quinticIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
-    A = af.calculate_amplification_AdImExRK438PR2_quinticEx_cubicIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
-    #theta_AdHImEx = sch.implicitness(C)
+    #A = af.calculate_amplification_AdImExRK438PR2_quinticEx_cubicIm(C, theta, kdx=np.linspace(0., 2*np.pi, 401, endpoint=True))
+    theta_AdHImEx = sch.implicitness(C)
     #theta_AdImExRK4CN = sch.implicitness_AdImExRK4CN(C)
     #theta_AdImExRK4CN = sch.implicitness_AdImExRK4CN_quinticEx_upwindIm(C)
     #theta_AdImExRK4CN = sch.implicitness_AdImExRK4CN_quinticEx_cubicIm(C)
     #theta_AdImExRK438PR2 = sch.implicitness_AdImExRK438PR2(C) # to be edited
     #theta_AdImExRK438PR2 = sch.implicitness_AdImExRK438PR2_quinticEx_quinticIm(C) # to be edited
-    theta_AdImExRK438PR2 = sch.implicitness_AdImExRK438PR2_quinticEx_cubicIm(C) # to be edited
+    #theta_AdImExRK438PR2 = sch.implicitness_AdImExRK438PR2_quinticEx_cubicIm(C) # to be edited
 
     # Design colorbar
     bounds = np.array([0.,0.5, 1.00000001])
@@ -46,13 +52,13 @@ def fig_amplification_factor():
     fig = plt.figure(figsize=(4,3))
     C2D, theta2D = np.meshgrid(C, theta)
     plt.contourf(C2D, theta2D, A, bounds, cmap=cmap, norm=norm, extend='max')
-    #plt.plot(C, theta_AdHImEx, 'r--', linewidth=0.7, label=f'AdHImEx $\\theta$')
+    plt.plot(C, theta_AdHImEx, 'r--', linewidth=0.7, label=f'AdHImEx $\\theta$')
     #plt.plot(C, theta_AdImExRK4CN, 'm--', linewidth=0.7, label=f'AdImEx RK4CN $\\theta$')
     #plt.plot(C, theta_AdImExRK4CN, 'm--', linewidth=0.7, label=f'AdImEx RK4CN (quintic Ex, upwind Im) $\\theta$')
     #plt.plot(C, theta_AdImExRK4CN, 'm--', linewidth=0.7, label=f'AdImEx RK4CN (quintic Ex, cubic Im) $\\theta$')
     #plt.plot(C, theta_AdImExRK438PR2, 'm--', linewidth=0.7, label=f'AdImEx RK438PR2 (cubic Ex, cubic Im) $\\theta$')
     #plt.plot(C, theta_AdImExRK438PR2, 'm--', linewidth=0.7, label=f'AdImEx RK438PR2 (quintic Ex, quintic Im) $\\theta$')
-    plt.plot(C, theta_AdImExRK438PR2, 'm--', linewidth=0.7, label=f'AdImEx RK438PR2 (quintic Ex, cubic Im) $\\theta$')
+    #plt.plot(C, theta_AdImExRK438PR2, 'm--', linewidth=0.7, label=f'AdImEx RK438PR2 (quintic Ex, cubic Im) $\\theta$')
     cbar = plt.colorbar(label='$\\max$$_{k \\Delta x}$$||A||$', boundaries = bounds, extend='max')
     cbar.set_ticks([0, 1, 1e1, 1e2, 1e3, 1e4, 1e5])
     cbar.set_ticklabels(['0', '1', '$10^1$', '$10^2$', '$10^3$', '$10^4$', '$10^5$'])
@@ -62,12 +68,17 @@ def fig_amplification_factor():
     plt.ylabel(f'$\\theta$')
     plt.tight_layout()
     #fig.savefig('figures/amplification_factor.pdf', dpi=300)
+    #fig.savefig('figures/amplification_factor_AdHImEx_quinticEx_quinticIm.pdf', dpi=300)
+    #fig.savefig('figures/amplification_factor_AdHImEx_quinticEx_cubicIm.pdf', dpi=300)
+    #fig.savefig('figures/amplification_factor_AdHImEx_quinticEx_upwindIm.pdf', dpi=300)
+    #fig.savefig('figures/amplification_factor_AdHImEx_cubicEx_cubicIm.pdf', dpi=300)
+    fig.savefig('figures/amplification_factor_AdHImEx_cubicEx_upwindIm.pdf', dpi=300)
     #fig.savefig('amplification_factor_AdImExRK4CN.pdf', dpi=300)
     #fig.savefig('amplification_factor_AdImExRK4CN_quinticEx_upwindIm.pdf', dpi=300)
     #fig.savefig('amplification_factor_AdImExRK4CN_quinticEx_cubicIm.pdf', dpi=300)
     #fig.savefig('amplification_factor_AdImExRK438PR2_cubicEx_cubicIm.pdf', dpi=300)
     #fig.savefig('amplification_factor_AdImExRK438PR2_quinticEx_quinticIm.pdf', dpi=300)
-    fig.savefig('amplification_factor_AdImExRK438PR2_quinticEx_cubicIm.pdf', dpi=300)
+    #fig.savefig('amplification_factor_AdImExRK438PR2_quinticEx_cubicIm.pdf', dpi=300)
     plt.close(fig)
 
  
@@ -591,10 +602,10 @@ def main():
     fig_amplification_factor()
 
     ######## FIGURE: Uniform advection ########
-    fig_uniform_advection()
+    #fig_uniform_advection()
 
     ######## FIGURE: Order of accuracy ########
-    fig_order_of_accuracy()
+    #fig_order_of_accuracy()
 
     ######## FIGURE: l2 norm over C ########
     #fig_l2_norm_over_C()
